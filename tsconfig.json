@@ -3,8 +3,11 @@
 		"target": "es6",
 		"module": "es6",
 		"lib": ["ESNext", "DOM"],
-		"outDir": "dist",
+		
+		// "outDir": "dist",
 		"rootDir": "src",
 		"noEmit": true,
+
+		"isolatedModules": true,
 	}
 }

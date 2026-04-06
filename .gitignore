@@ -1,2 +1,6 @@
 node_modules
-dist
+.vscode
+*bundle.js
+
+# temporary
+bin

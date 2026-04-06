@@ -1,5 +1,9 @@
 {
-  "devDependencies": {
-    "esbuild": "0.28.0"
-  }
+	"devDependencies": {
+		"esbuild": "0.28.0"
+	},
+	"scripts": {
+		"dev": "esbuild ./src/index.ts --bundle --watch --outfile=dev.bundle.js --sourcemap",
+		"build": "esbuild ./src/index.ts --bundle --outfile=bundle.js"
+	}
 }
