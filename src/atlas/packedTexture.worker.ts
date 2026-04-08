@@ -1,9 +1,8 @@
 /// <reference lib="webworker" />
 
-import { BinaryBufferReader } from "./binary/bufferReader.js";
-import { BinaryStreamReader } from "./binary/streamReader.js";
+import { BinaryBufferReader } from "../binary/bufferReader.js";
 
-type ProgressInfo = {
+export type PackedTextureProgressInfo = {
 	blobIndex: number;
 	blobSize: number;
 };
@@ -12,7 +11,7 @@ export type PackedTextureIn = string;
 export type PackedTextureOut = (
 	| {
 		type: "progress";
-		info: ProgressInfo;
+		info: PackedTextureProgressInfo;
 	}
 	| {
 		type: "done";
@@ -24,23 +23,24 @@ const post = (msg: PackedTextureOut, transfers: Transferable[] = []) => self.pos
 
 self.addEventListener("message", async e => {
 	const msg = e.data as PackedTextureIn;
+	try {
 
-	// console.log("⚙️ Received message", msg);
-
-	const img = await readPackedTexture(msg, info => {
-		post({
-			type: "progress",
-			info,
+		const img = await readPackedTexture(msg, info => {
+			post({
+				type: "progress",
+				info,
+			});
 		});
-	});
-	console.log("⚙️ Done");
-	post({
-		type: "done",
-		image: img,
-	}, [img]);
+		post({
+			type: "done",
+			image: img,
+		}, [img]);
+	} catch (err) {
+		self.reportError(err);
+	}
 });
 
-const readPackedTexture = async (src: string, update: (info: ProgressInfo) => void, updateInterval = 100) => {
+const readPackedTexture = async (src: string, update: (info: PackedTextureProgressInfo) => void, updateInterval = 100) => {
 	const res = await fetch(src);
 	const blob = await res.blob();
 	const reader = new BinaryBufferReader(await blob.arrayBuffer());
