@@ -39,7 +39,7 @@ self.addEventListener("message", async e => {
 	}, [img]);
 });
 
-const readPackedTexture = async (src: string, update: (info: ProgressInfo) => void, updateInterval = 1000) => {
+const readPackedTexture = async (src: string, update: (info: ProgressInfo) => void, updateInterval = 100) => {
 	const res = await fetch(src);
 	const blob = await res.blob();
 	using reader = new BinaryStreamReader(blob.stream());
@@ -48,6 +48,8 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 	const h = await reader.readInt32();
 	const doAlpha = await reader.readUint8() === 1;
 	const totalSize = 4 * w * h;
+
+	let totalTime = 0;
 
 	if (w < 0 || h < 0) {
 		throw new Error("width or height is negative");
@@ -67,9 +69,10 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 	}
 
 	let dataIdx = 0;
-	let prevUpdate = performance.now();
+	let prevUpdate = performance.now() - updateInterval - 1000;
 	const push = (repeats: number, r: number, g: number, b: number, a: number) => {
 		if (repeats <= 0) return;
+		const now = performance.now();
 		const i = dataIdx;
 		dataIdx += 4 * repeats;
 		data[i + 0] = r;
@@ -92,8 +95,10 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 	
 		const end = i + 4 * curr;
 		data.copyWithin(end, end - 4 * needed, end);
-	}
 
+		totalTime += performance.now() - now;
+	}
+	
 	while (dataIdx < totalSize) {
 		const repeats = await reader.readUint8();
 		if (doAlpha) {
@@ -118,9 +123,10 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 			reportProgress();
 		}
 		// break early for debugging
-		// if (dataIdx > 4 * 4096 * 16) break;
+		if (dataIdx > 4 * 4096 * 16) break;
 	}
-
+	
+	console.log(`⚙️ time spent pushing: ${totalTime}`);
 	ctx.putImageData(imgData, 0, 0);
 
 	reportProgress();

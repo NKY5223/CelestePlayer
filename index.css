@@ -2,9 +2,25 @@ body {
 	padding: 1rem;
 	margin: 0;
 	background-color: #020810;
+	color: #fff;
 }
 
-canvas {
+button {
 	display: block;
+	padding: .25em .5em;
+	cursor: pointer;
+
+	font-size: 2em;
+	color: inherit;
+	background: none;
+	border: 2px solid currentColor;
+}
+
+svg, canvas {
+	display: block;
+	margin-block: 1rem;
+	outline: 1px solid currentColor;
+}
+canvas {
 	image-rendering: pixelated;
 }
