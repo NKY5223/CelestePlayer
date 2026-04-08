@@ -50,8 +50,6 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 	const doAlpha = reader.readUint8() === 1;
 	const totalSize = 4 * w * h;
 
-	let totalTime = 0;
-
 	if (w < 0 || h < 0) {
 		throw new Error("width or height is negative");
 	}
@@ -103,9 +101,7 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 		if (doAlpha) {
 			const a = reader.readUint8();
 			if (a > 0) {
-				const T = performance.now();
 				const b = reader.readUint8();
-				totalTime += performance.now() - T;
 				const g = reader.readUint8();
 				const r = reader.readUint8();
 				push(repeats, r, g, b, a);
@@ -127,7 +123,6 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 		// if (dataIdx > 4 * 4096 * 16) break;
 	}
 
-	console.log(`⚙️ time spent doing the one thing: ${totalTime}`);
 	ctx.putImageData(imgData, 0, 0);
 
 	reportProgress();
