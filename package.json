@@ -4,6 +4,6 @@
 	},
 	"scripts": {
 		"dev": "esbuild packedTexture.worker=./src/packedTexture.worker.ts bundle=./src/index.ts --bundle --watch --outdir=dst --sourcemap --format=esm",
-		"build": "esbuild ./src/index.ts --bundle --outfile=bundle.js"
+		"build": "echo \"ummmmm i don't wanna deal with making this cmd rn just use `dev`\""
 	}
 }

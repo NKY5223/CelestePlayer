@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { BinaryBufferReader } from "./binary/bufferReader.js";
 import { BinaryStreamReader } from "./binary/streamReader.js";
 
 type ProgressInfo = {
@@ -42,11 +43,11 @@ self.addEventListener("message", async e => {
 const readPackedTexture = async (src: string, update: (info: ProgressInfo) => void, updateInterval = 100) => {
 	const res = await fetch(src);
 	const blob = await res.blob();
-	using reader = new BinaryStreamReader(blob.stream());
+	const reader = new BinaryBufferReader(await blob.arrayBuffer());
 
-	const w = await reader.readInt32();
-	const h = await reader.readInt32();
-	const doAlpha = await reader.readUint8() === 1;
+	const w = reader.readInt32();
+	const h = reader.readInt32();
+	const doAlpha = reader.readUint8() === 1;
 	const totalSize = 4 * w * h;
 
 	let totalTime = 0;
@@ -72,7 +73,6 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 	let prevUpdate = performance.now() - updateInterval - 1000;
 	const push = (repeats: number, r: number, g: number, b: number, a: number) => {
 		if (repeats <= 0) return;
-		const now = performance.now();
 		const i = dataIdx;
 		dataIdx += 4 * repeats;
 		data[i + 0] = r;
@@ -92,29 +92,30 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 		curr >>= 1;
 		const needed = repeats - curr;
 		if (needed === 0) return;
-	
+
 		const end = i + 4 * curr;
 		data.copyWithin(end, end - 4 * needed, end);
 
-		totalTime += performance.now() - now;
 	}
-	
+
 	while (dataIdx < totalSize) {
-		const repeats = await reader.readUint8();
+		const repeats = reader.readUint8();
 		if (doAlpha) {
-			const a = await reader.readUint8();
+			const a = reader.readUint8();
 			if (a > 0) {
-				const b = await reader.readUint8();
-				const g = await reader.readUint8();
-				const r = await reader.readUint8();
+				const T = performance.now();
+				const b = reader.readUint8();
+				totalTime += performance.now() - T;
+				const g = reader.readUint8();
+				const r = reader.readUint8();
 				push(repeats, r, g, b, a);
 			} else {
 				push(repeats, 0, 0, 0, 0);
 			}
 		} else {
-			const b = await reader.readUint8();
-			const g = await reader.readUint8();
-			const r = await reader.readUint8();
+			const b = reader.readUint8();
+			const g = reader.readUint8();
+			const r = reader.readUint8();
 			push(repeats, r, g, b, 0xff);
 		}
 		const now = performance.now();
@@ -123,10 +124,10 @@ const readPackedTexture = async (src: string, update: (info: ProgressInfo) => vo
 			reportProgress();
 		}
 		// break early for debugging
-		if (dataIdx > 4 * 4096 * 16) break;
+		// if (dataIdx > 4 * 4096 * 16) break;
 	}
-	
-	console.log(`⚙️ time spent pushing: ${totalTime}`);
+
+	console.log(`⚙️ time spent doing the one thing: ${totalTime}`);
 	ctx.putImageData(imgData, 0, 0);
 
 	reportProgress();
