@@ -3,7 +3,7 @@
 		"esbuild": "0.28.0"
 	},
 	"scripts": {
-		"dev": "esbuild packedTexture.worker=./src/atlas/packedTexture.worker.ts bundle=./src/index.ts --outdir=dst --bundle --serve=2470 --servedir=./ --sourcemap --format=esm",
+		"dev": "scripts\\dev",
 		"build": "echo \"ummmmm i don't wanna deal with making this cmd rn just use `dev`\""
 	}
 }

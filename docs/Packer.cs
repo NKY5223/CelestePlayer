@@ -14,15 +14,15 @@ for (int n = 0; n < textureCount; n++)
 	for (int num12 = 0; num12 < num11; num12++)
 	{
 		string path = reader.ReadString().Replace('\\', '/');
-		short x = reader.ReadInt16();
-		short y = reader.ReadInt16();
-		short w = reader.ReadInt16();
-		short h = reader.ReadInt16();
+		short sx = reader.ReadInt16();
+		short sy = reader.ReadInt16();
+		short sw = reader.ReadInt16();
+		short sh = reader.ReadInt16();
 		short cx = reader.ReadInt16();
 		short cy = reader.ReadInt16();
-		short cw = reader.ReadInt16();
-		short ch = reader.ReadInt16();
-		atlas2.textures[path] = new MTexture(mTexture, path, new Rectangle(x, y, w, h), new Vector2(-cx, -cy), cw, ch);
+		short w = reader.ReadInt16();
+		short h = reader.ReadInt16();
+		atlas2.textures[path] = new MTexture(mTexture, path, new Rectangle(sx, sy, sw, sh), new Vector2(-cx, -cy), w, h);
 	}
 }
 if (metaF.Position < metaF.Length && reader.ReadString() == "LINKS")

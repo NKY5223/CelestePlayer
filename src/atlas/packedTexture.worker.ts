@@ -24,7 +24,6 @@ const post = (msg: PackedTextureOut, transfers: Transferable[] = []) => self.pos
 self.addEventListener("message", async e => {
 	const msg = e.data as PackedTextureIn;
 	try {
-
 		const img = await readPackedTexture(msg, info => {
 			post({
 				type: "progress",

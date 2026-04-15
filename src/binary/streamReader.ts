@@ -1,4 +1,4 @@
-import { AsyncBinNumReader } from "./types.js";
+import { AsyncBinNumReader } from "./defs.js";
 
 type ByteArray = Uint8Array<ArrayBuffer>;
 /** 
