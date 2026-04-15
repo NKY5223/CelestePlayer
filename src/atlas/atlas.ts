@@ -1,9 +1,12 @@
 import { Rectangle } from "../utils/rectangle.js";
-import type { MetaAtlasImage, MetaAtlasTexture, MetaIn, MetaOut } from "./meta.worker.js";
-import type { PackedTextureOut, PackedTextureIn, PackedTextureProgressInfo } from "./packedTexture.worker.js";
+import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.js";
+import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./packedTexture.worker.js";
 
 export type AtlasTexture = {
 	name: string;
+	width: number;
+	height: number;
+	image: CanvasImageSource;
 };
 export type AtlasImage = {
 	/** texture source */
@@ -42,9 +45,10 @@ export class Atlas {
 	readonly imageNameTree: AtlasNameTree;
 	constructor(
 		readonly textures: Map<string, AtlasTexture>,
-		meta: MetaAtlasTexture[],
+		meta: AtlasMetaTexture[],
 	) {
 		const err = (e: unknown) => { throw e; };
+		console.log(meta);
 		this.images = new Map(meta.flatMap(({ name, images }) => {
 			const texture = textures.get(name)
 				?? err(new Error(`Could not find atlas texture with name ${name}`));
@@ -73,16 +77,25 @@ export class Atlas {
 			while (true) {
 				const parent = lookup.get(path);
 				if (parent) {
-					return tails.reduceRight((node: AtlasNameTree, tail) => {
+					const [_, tree] = tails.reduceRight(([path, node], tail) => {
 						const child: AtlasNameTree = {
 							name: tail,
 						};
+						if (path) path += "/";
+						path += tail;
 						(node.children ??= new Map<string, AtlasNameTree>()).set(tail, child);
-						return child;
-					}, parent);
+						lookup.set(path, child)
+						return [path, child];
+					}, [path, parent]);
+					return tree;
 				}
 
 				const slash = path.lastIndexOf("/");
+				if (slash < 0) {
+					tails.push(path);
+					path = "";
+					continue;
+				}
 				tails.push(path.slice(slash + 1));
 				path = path.slice(0, slash);
 			}
@@ -100,14 +113,33 @@ export class Atlas {
 		return root;
 	}
 
-	static readFromUrls = (
+	static readFromUrls = async (
 		metaSrc: string,
-		textureSrcs: Map<string, string> | Record<string, string>,
+		// is a map because those are easier to work with.
+		// would be *fine* as a Record but i just don't wanna deal with that rn
+		textureSrcs: Map<string, string>,
 	) => {
+		const [meta, ...images] = await Promise.all([
+			this.readAtlasMeta(metaSrc),
+			...textureSrcs.entries().map(([name, src]) =>
+				this.readAtlasTexture(src)
+					.then(t => [name, t] as const)
+			)
+		]);
 
+		return new Atlas(
+			new Map(images.map(([name, image]) => [name, {
+				name,
+				image,
+				width: image.width,
+				height: image.height,
+			} satisfies AtlasTexture])),
+			meta
+		);
 	}
 
-	static readAtlasTexture = (src: string, onProgress?: (info: PackedTextureProgressInfo) => void) => {
+	static readAtlasTexture = (src: string, onProgress?: (info: AtlasDataReadInfo) => void): Promise<ImageBitmap> => {
+		const url = new URL(src, window.location.href).href;
 		const worker = new Worker("./dst/packedTexture.worker.js");
 		let done = false;
 
@@ -116,7 +148,7 @@ export class Atlas {
 		worker.addEventListener("message", e => {
 			if (done) return;
 
-			const msg = e.data as PackedTextureOut;
+			const msg = e.data as AtlasDataOut;
 			switch (msg.type) {
 				case "progress": {
 					onProgress?.(msg.info);
@@ -134,21 +166,22 @@ export class Atlas {
 			reject(e.error);
 			console.error("Failed to make atlas image worker:", e);
 		});
-		worker.postMessage(src satisfies PackedTextureIn);
+		worker.postMessage(url satisfies AtlasDataIn);
 
 		return promise;
 	}
 
-	static readAtlasMeta = (src: string) => {
+	static readAtlasMeta = (src: string): Promise<AtlasMetaTexture[]> => {
+		const url = new URL(src, window.location.href).href;
 		const worker = new Worker("./dst/meta.worker.js");
 		let done = false;
 
-		const { promise, resolve, reject } = Promise.withResolvers<MetaAtlasTexture[]>();
+		const { promise, resolve, reject } = Promise.withResolvers<AtlasMetaTexture[]>();
 
 		worker.addEventListener("message", e => {
 			if (done) return;
 
-			const msg = e.data as MetaOut;
+			const msg = e.data as AtlasMetaOut;
 			switch (msg.type) {
 				case "done": {
 					done = true;
@@ -162,7 +195,7 @@ export class Atlas {
 			reject(e.error);
 			console.error("Failed to make atlas meta worker:", e);
 		});
-		worker.postMessage(src satisfies MetaIn);
+		worker.postMessage(url satisfies AtlasMetaIn);
 
 		return promise;
 	}

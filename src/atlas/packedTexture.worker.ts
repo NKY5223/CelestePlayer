@@ -2,16 +2,16 @@
 
 import { BinaryBufferReader } from "../binary/bufferReader.js";
 
-export type PackedTextureProgressInfo = {
+export type AtlasDataReadInfo = {
 	blobIndex: number;
 	blobSize: number;
 };
 
-export type PackedTextureIn = string;
-export type PackedTextureOut = (
+export type AtlasDataIn = string;
+export type AtlasDataOut = (
 	| {
 		type: "progress";
-		info: PackedTextureProgressInfo;
+		info: AtlasDataReadInfo;
 	}
 	| {
 		type: "done";
@@ -19,10 +19,10 @@ export type PackedTextureOut = (
 	}
 );
 
-const post = (msg: PackedTextureOut, transfers: Transferable[] = []) => self.postMessage(msg, transfers);
+const post = (msg: AtlasDataOut, transfers: Transferable[] = []) => self.postMessage(msg, transfers);
 
 self.addEventListener("message", async e => {
-	const msg = e.data as PackedTextureIn;
+	const msg = e.data as AtlasDataIn;
 	try {
 		const img = await readPackedTexture(msg, info => {
 			post({
@@ -39,7 +39,7 @@ self.addEventListener("message", async e => {
 	}
 });
 
-const readPackedTexture = async (src: string, update: (info: PackedTextureProgressInfo) => void, updateInterval = 100) => {
+const readPackedTexture = async (src: string, update: (info: AtlasDataReadInfo) => void, updateInterval = 100) => {
 	const res = await fetch(src);
 	const blob = await res.blob();
 	const reader = new BinaryBufferReader(await blob.arrayBuffer());

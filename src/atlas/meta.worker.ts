@@ -2,7 +2,7 @@
 
 import { BinaryBufferReader } from "../binary/bufferReader.js";
 
-export type MetaAtlasImage = {
+export type AtlasMetaImage = {
 	path: string;
 	sourceX: number;
 	sourceY: number;
@@ -13,21 +13,21 @@ export type MetaAtlasImage = {
 	width: number;
 	height: number;
 };
-export type MetaAtlasTexture = {
+export type AtlasMetaTexture = {
 	name: string;
-	images: MetaAtlasImage[];
+	images: AtlasMetaImage[];
 };
-export type MetaIn = string;
-export type MetaOut = (
+export type AtlasMetaIn = string;
+export type AtlasMetaOut = (
 	| {
 		type: "done";
-		textures: MetaAtlasTexture[];
+		textures: AtlasMetaTexture[];
 	}
 );
-const post = (msg: MetaOut, transfers: Transferable[] = []) => self.postMessage(msg, transfers);
+const post = (msg: AtlasMetaOut, transfers: Transferable[] = []) => self.postMessage(msg, transfers);
 
 self.addEventListener("message", async e => {
-	const msg = e.data as MetaIn;
+	const msg = e.data as AtlasMetaIn;
 	try {
 		const data = await readMeta(msg);
 		post({
@@ -46,11 +46,11 @@ const readMeta = async (src: string) => {
 	reader.readInt32();
 	reader.readString();
 	reader.readInt32();
-	const textures = Array.from<unknown, MetaAtlasTexture>({ length: reader.readInt16() }, () => {
+	const textures = Array.from<unknown, AtlasMetaTexture>({ length: reader.readInt16() }, () => {
 		const texture = reader.readString();
 		return {
 			name: texture,
-			images: Array.from<unknown, MetaAtlasImage>({ length: reader.readInt16() }, () => ({
+			images: Array.from<unknown, AtlasMetaImage>({ length: reader.readInt16() }, () => ({
 				path: reader.readString().replaceAll("\\", "/"),
 				sourceX: reader.readInt16(),
 				sourceY: reader.readInt16(),
