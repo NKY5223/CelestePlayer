@@ -1,0 +1,1 @@
+echo "too lazy to make a build cmd"

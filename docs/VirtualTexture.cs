@@ -124,8 +124,8 @@ using (FileStream fileStream = File.OpenRead(System.IO.Path.Combine(Engine.Conte
 					}
 					pixelIdx += repeats;
 					bufOffset = pixelIdx * 4;
-					// ???? this is 0x7ffe0, or 0x80000 - 0x20
-					// why does it use 0x80000 instead of bytes.Length??
+					// ???? this is 0x7ffe0, or 0x80000 - 32
+					// why does it use 0x80000 instead of chunk.Length??
 					if (chunkIdx > 524256)
 					{
 						int end = chunk.Length - chunkIdx;

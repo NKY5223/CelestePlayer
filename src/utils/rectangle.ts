@@ -4,4 +4,9 @@ export class Rectangle {
 	static fromSize(x: number, y: number, width: number, height: number): Rectangle {
 		return new Rectangle(x, x + width, y, y + height);
 	}
+
+	/** Returns `true` iff point is in rectangle or on its boundary. */
+	contains(x: number, y: number): boolean {
+		return x >= this.left && x <= this.right && y >= this.top && y <= this.bottom;
+	}
 }

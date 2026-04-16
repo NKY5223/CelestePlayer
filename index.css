@@ -89,6 +89,7 @@ canvas {
 			position: absolute;
 			position-anchor: --canvas;
 			inset: anchor(top) anchor(right) anchor(bottom) anchor(left);
+			pointer-events: none;
 
 			background-color: #000000c0;
 			clip-path: polygon(
@@ -105,14 +106,20 @@ canvas {
 			&[hidden] { display: none; }
 
 			> .box {
-				content: "";
 				display: block;
 				position: absolute;
 				top: var(--t); 
 				left: var(--l);
 				width: calc(var(--r) - var(--l));
 				height: calc(var(--b) - var(--t));
-				outline: 1px solid #0f0;
+				outline: 2px solid #0f0;
+
+				&::after {
+					content: attr(data-path);
+					position: absolute;
+					left: 0;
+					bottom: 100%;
+				}
 			}
 		}
 	}

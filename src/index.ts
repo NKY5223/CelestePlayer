@@ -138,24 +138,45 @@ button.addEventListener("click", async () => {
 
 	const box = mkEl("div", { classes: ["box"] });
 	const overlay = mkEl("div", { classes: ["overlay"], children: [box] });
-	const highlight = (image: AtlasImage | null) => {
+	const scrollToBox = () => box.scrollIntoView({
+		block: "center",
+		inline: "center",
+	});
+	const highlight = (image: AtlasImage | null, scroll = true) => {
 		if (!image) {
 			overlay.hidden = true;
 			return;
 		}
-		console.log(image);
 		if (image.texture !== texture0) return;
 		overlay.hidden = false;
 		overlay.style.setProperty("--left", `${image.uv.left}`);
 		overlay.style.setProperty("--right", `${image.uv.right}`);
 		overlay.style.setProperty("--top", `${image.uv.top}`);
 		overlay.style.setProperty("--bottom", `${image.uv.bottom}`);
-		box.scrollIntoView({
-			block: "center",
-			inline: "center",
-		});
+		if (scroll) scrollToBox();
+		box.dataset.path = image.path;
 	}
 	highlight(null);
+
+	canvas.addEventListener("click", e => {
+		if (e.ctrlKey) {
+			scrollToBox();
+			return;
+		}
+		if (e.shiftKey) {
+			highlight(null);
+			return;
+		}
+		const x = e.offsetX / scale;
+		const y = e.offsetY / scale;
+		const candidates = atlas.images.values().filter(i => i.uv.contains(x, y)).toArray();
+		console.log("Candidates for (%i, %i): %o", x, y, candidates);
+		if (candidates.length === 0) {
+			highlight(null);
+		} else {
+			highlight(candidates[0], false);
+		}
+	});
 
 	ctx.drawImage(texture0.image, 0, 0);
 

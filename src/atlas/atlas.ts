@@ -1,6 +1,6 @@
 import { Rectangle } from "../utils/rectangle.js";
 import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.js";
-import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./packedTexture.worker.js";
+import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./data.worker.js";
 
 export type AtlasTexture = {
 	name: string;
@@ -140,7 +140,7 @@ export class Atlas {
 
 	static readAtlasTexture = (src: string, onProgress?: (info: AtlasDataReadInfo) => void): Promise<ImageBitmap> => {
 		const url = new URL(src, window.location.href).href;
-		const worker = new Worker("./dst/packedTexture.worker.js");
+		const worker = new Worker("./dst/atlas_data.worker.js");
 		let done = false;
 
 		const { promise, resolve, reject } = Promise.withResolvers<ImageBitmap>();
@@ -173,7 +173,7 @@ export class Atlas {
 
 	static readAtlasMeta = (src: string): Promise<AtlasMetaTexture[]> => {
 		const url = new URL(src, window.location.href).href;
-		const worker = new Worker("./dst/meta.worker.js");
+		const worker = new Worker("./dst/atlas_meta.worker.js");
 		let done = false;
 
 		const { promise, resolve, reject } = Promise.withResolvers<AtlasMetaTexture[]>();
