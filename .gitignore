@@ -3,5 +3,5 @@ node_modules
 
 dst
 
-# temporary
-bin
+# don't commit assets rn
+assets

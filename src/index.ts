@@ -107,9 +107,9 @@ button.addEventListener("click", async () => {
 	button.disabled = true;
 
 	const atlas = await Atlas.readFromUrls(
-		"./bin/Gameplay.meta",
+		"./assets/Gameplay.meta",
 		new Map([
-			["Gameplay0", "./bin/Gameplay0.data"]
+			["Gameplay0", "./assets/Gameplay0.data"]
 		])
 	);
 	console.log(atlas);
