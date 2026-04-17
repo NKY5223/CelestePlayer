@@ -13,7 +13,7 @@ export type AtlasImage = {
 	texture: AtlasTexture;
 	/** name of image */
 	path: string;
-	/** uv coordinates of image in texture (integer) */
+	/** uv coordinates of image in texture (integer pixel position) */
 	uv: Rectangle;
 	/** Offset image */
 	position: Rectangle;
@@ -41,14 +41,17 @@ export type AtlasNameTree = {
 	image?: AtlasImage;
 };
 export class Atlas {
+	/** DO NOT MODIFY */
 	readonly images: Map<string, AtlasImage>;
+	/** DO NOT MODIFY */
+	readonly subimages: Map<string, Map<number, AtlasImage>>;
+	/** DO NOT MODIFY */
 	readonly imageNameTree: AtlasNameTree;
 	constructor(
 		readonly textures: Map<string, AtlasTexture>,
 		meta: AtlasMetaTexture[],
 	) {
 		const err = (e: unknown) => { throw e; };
-		console.log(meta);
 		this.images = new Map(meta.flatMap(({ name, images }) => {
 			const texture = textures.get(name)
 				?? err(new Error(`Could not find atlas texture with name ${name}`));
@@ -62,6 +65,7 @@ export class Atlas {
 			} satisfies AtlasImage]);
 		}));
 		this.imageNameTree = Atlas.toNameTree(this.images);
+		this.subimages = Atlas.generateSubimages(this.images);
 	}
 
 	static toNameTree(
@@ -111,6 +115,18 @@ export class Atlas {
 		images.forEach(addEntry);
 
 		return root;
+	}
+
+	static generateSubimages = (images: Map<string, AtlasImage>): Map<string, Map<number, AtlasImage>> => {
+		const map = new Map<string, Map<number, AtlasImage>>();
+		for (const [path, img] of images) {
+			const match = path.match(/(\d+)$/);
+			if (match === null) continue;
+			const num = parseInt(match[1]);
+			if (!isFinite(num) || num % 1 !== 0) continue;
+			map.getOrInsertComputed(path, () => new Map()).set(num, img);
+		}
+		return map;
 	}
 
 	static readFromUrls = async (

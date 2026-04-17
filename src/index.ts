@@ -1,5 +1,6 @@
 import { Atlas, AtlasImage, AtlasNameTree } from "./atlas/atlas.js";
 import { Graph } from "./graph.js";
+import { Sprite } from "./sprite/sprite.js";
 
 const mkEl = <K extends keyof HTMLElementTagNameMap>(tag: K, options?: {
 	id?: string;
@@ -77,7 +78,10 @@ const makeAtlasTree = (
 				mkEl("ul", tree.children.entries().toArray()
 					// this sort could totally be just `.sort()` due to array tostring rules
 					// just a cursed thought 
-					.sort(([a], [b]) => a < b ? -1 : a === b ? 0 : 1)
+					.sort(([a], [b]) =>
+						a.toLowerCase() < b.toLowerCase() ? -1 :
+							a === b ? 0 :
+								1)
 					.map(([name, child]) =>
 						mkEl("li", [
 							makeAtlasTree(name, child, highlight)
@@ -93,28 +97,12 @@ const makeAtlasTree = (
 	return main;
 }
 
+const atlasDisplay = (atlas: Atlas): Element => {
+	const treeDiv = mkEl("div", { classes: ["tree-container"], children: ["Atlas:"] });
+	const atlasDiv = mkEl("div", { classes: ["atlas-container"] });
+	const atlasScroller = mkEl("div", { classes: ["atlas-scroller"], children: [atlasDiv] });
 
-const layout = mkEl("div");
-layout.classList.add("layout");
-const topDiv = mkEl("div");
-const treeDiv = mkEl("div", { classes: ["treeContainer"] });
-const atlasDiv = mkEl("div", { classes: ["atlasContainer"] });
-layout.append(topDiv, treeDiv, atlasDiv);
-
-
-const button = mkEl("button", ["Read atlas"]);
-button.addEventListener("click", async () => {
-	button.disabled = true;
-
-	const atlas = await Atlas.readFromUrls(
-		"./assets/Gameplay.meta",
-		new Map([
-			["Gameplay0", "./assets/Gameplay0.data"]
-		])
-	);
-	console.log(atlas);
 	const texture0 = [...atlas.textures.values()][0]!;
-
 	const ctx = mkCtx({
 		width: texture0.width,
 		height: texture0.height,
@@ -170,7 +158,7 @@ button.addEventListener("click", async () => {
 		const x = e.offsetX / scale;
 		const y = e.offsetY / scale;
 		const candidates = atlas.images.values().filter(i => i.uv.contains(x, y)).toArray();
-		console.log("Candidates for (%i, %i): %o", x, y, candidates);
+		// console.log("Candidates for (%i, %i): %o", x, y, candidates);
 		if (candidates.length === 0) {
 			highlight(null);
 		} else {
@@ -182,6 +170,35 @@ button.addEventListener("click", async () => {
 
 	treeDiv.append(makeAtlasTree("<root>", atlas.imageNameTree, highlight));
 	atlasDiv.append(canvas, overlay);
+
+	return mkEl("div", {
+		classes: ["section", "section-big", "section-atlas"],
+		children: [treeDiv, atlasScroller],
+	});
+}
+
+
+const layout = mkEl("div");
+layout.classList.add("layout");
+const topDiv = mkEl("div", { classes: ["section"] });
+layout.append(topDiv);
+
+
+const button = mkEl("button", ["Read atlas"]);
+button.addEventListener("click", async () => {
+	button.disabled = true;
+
+	const atlas = await Atlas.readFromUrls(
+		"./assets/Gameplay.meta",
+		new Map([
+			["Gameplay0", "./assets/Gameplay0.data"]
+		])
+	);
+	console.log("Atlas:", atlas);
+
+	Sprite.readXml(atlas, "./assets/Sprites.xml");
+
+	layout.append(atlasDisplay(atlas));
 });
 topDiv.append(button);
 

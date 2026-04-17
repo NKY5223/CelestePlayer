@@ -3,9 +3,8 @@
 * {
 	box-sizing: border-box;
 }
-html, body { height: 100%; }
+html, body { min-height: 100%; }
 body {
-	padding: 1rem;
 	margin: 0;
 	background-color: #020810;
 	color: #fff;
@@ -35,36 +34,67 @@ canvas {
 }
 
 .layout {
+}
+.section {
+	position: relative;
+	padding: 1rem;
+	/* overflow: auto; */
+
+	&.section-big {
+		height: 75svh;
+	}
+}
+
+.section-atlas {
 	display: grid;
 	width: 100%;
-	height: 100%;
-	grid-template-areas: 
-		"a a"
-		"b c"
-	;
-	grid-template-columns: min-content auto;
-	grid-template-rows: min-content auto;
+	grid-template-columns: max-content auto;
+	grid-template-rows: 100%;
+	gap: 1rem;
 
-	> * {
-		position: relative;
-		width: 100%;
-		height: 100%;
-		overflow: auto;
-	}
-	> :nth-child(1) {
-		grid-area: a; 
-	}
-	> :nth-child(2) {
-		grid-area: b;
+	.tree-container {
 		min-width: 20rem;
 		padding: 1rem;
 		width: max-content;
+		overflow: auto;
+
+		.tree {
+			> ul {
+				position: relative;
+				margin: 0;
+				padding-inline-start: 1ch;
+				list-style: none;
+				&::before {
+					content: "";
+					display: block;
+					position: absolute;
+					left: .125ch;
+					top: .125em;
+					bottom: .125em;
+					border-left: 1px solid rgb(from currentColor r g b / .5);
+				}
+			}
+
+			.title {
+				&.image {
+					cursor: pointer;
+					color: #2080ff;
+				}
+			}
+		}
 	}
-	.atlasContainer {
+	.atlas-scroller {
+		height: 100%;
+		width: 100%;
+		overflow: auto;
+	}
+	.atlas-container {
 		--scale: 1px;
 
-		grid-area: c;
+		position: relative;
 		padding: 1rem;
+		width: fit-content;
+		height: fit-content;
 
 		> canvas {
 			--width: 1;
@@ -85,10 +115,8 @@ canvas {
 			--t: calc(var(--scale) * var(--top));
 			--b: calc(var(--scale) * var(--bottom));
 			
-			display: block;
 			position: absolute;
-			position-anchor: --canvas;
-			inset: anchor(top) anchor(right) anchor(bottom) anchor(left);
+			inset: 1rem;
 			pointer-events: none;
 
 			background-color: #000000c0;
@@ -117,29 +145,12 @@ canvas {
 				&::after {
 					content: attr(data-path);
 					position: absolute;
+					display: block;
+					width: max-content;
 					left: 0;
 					bottom: 100%;
 				}
 			}
-		}
-	}
-}
-
-.tree {
-	> ul {
-		margin: 0;
-		padding-inline-start: 2ch;
-		list-style: none;
-		&::before {
-			content: "";
-			display: block;
-		}
-	}
-
-	.title {
-		&.image {
-			cursor: pointer;
-			color: #2080ff;
 		}
 	}
 }
