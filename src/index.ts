@@ -1,6 +1,9 @@
-import { Atlas, AtlasImage, AtlasNameTree } from "./atlas/atlas.js";
+import { Atlas, AtlasNameTree } from "./atlas/atlas.js";
+import { AtlasImage } from "./atlas/image.js";
 import { Graph } from "./graph.js";
+import { SpriteBank } from "./sprite/bank.js";
 import { Sprite } from "./sprite/sprite.js";
+import { Vector2 } from "./utils/vector2.js";
 
 const mkEl = <K extends keyof HTMLElementTagNameMap>(tag: K, options?: {
 	id?: string;
@@ -18,13 +21,32 @@ const mkEl = <K extends keyof HTMLElementTagNameMap>(tag: K, options?: {
 	}
 	return el;
 }
-const mkCtx = (options: { width?: number; height?: number } = {}) => {
-	const { width, height } = options;
+const mkCtx = (options: {
+	width?: number;
+	height?: number;
+	pixelate?: boolean;
+	/** what size to make the canvas (css pixel / canvas pixel). */
+	scale?: number;
+} = {}) => {
+	const {
+		width, height,
+		pixelate = false,
+		scale,
+	} = options;
 	const canvas = document.createElement("canvas");
 	const ctx = canvas.getContext("2d");
 	if (!ctx) throw "no ctx";
 	if (width !== undefined) canvas.width = width;
 	if (height !== undefined) canvas.height = height;
+	if (scale !== undefined) {
+		canvas.style.width = `${canvas.width * scale}px`;
+		canvas.style.height = `${canvas.height * scale}px`;
+	}
+	if (pixelate) {
+		canvas.classList.add("pixelate");
+		// cannot be done too early or it resets??
+		ctx.imageSmoothingEnabled = false;
+	}
 	return ctx;
 }
 
@@ -102,10 +124,11 @@ const atlasDisplay = (atlas: Atlas): Element => {
 	const atlasDiv = mkEl("div", { classes: ["atlas-container"] });
 	const atlasScroller = mkEl("div", { classes: ["atlas-scroller"], children: [atlasDiv] });
 
-	const texture0 = [...atlas.textures.values()][0]!;
+	const texture0 = atlas.textures.get("Gameplay0")!;
 	const ctx = mkCtx({
 		width: texture0.width,
 		height: texture0.height,
+		pixelate: true,
 	});
 	const canvas = ctx.canvas;
 	canvas.style.setProperty("--width", `${canvas.width}`);
@@ -142,7 +165,7 @@ const atlasDisplay = (atlas: Atlas): Element => {
 		overlay.style.setProperty("--top", `${image.uv.top}`);
 		overlay.style.setProperty("--bottom", `${image.uv.bottom}`);
 		if (scroll) scrollToBox();
-		box.dataset.path = image.path;
+		box.dataset.text = `${image.path}\noffset=${image.offset.x},${image.offset.y} w=${image.size.x} h=${image.size.y}`;
 	}
 	highlight(null);
 
@@ -177,6 +200,86 @@ const atlasDisplay = (atlas: Atlas): Element => {
 	});
 }
 
+const spriteDisplay = (bank: SpriteBank): Element => {
+	const log = mkEl("output", { classes: ["log"] });
+
+	const sprite = bank.get("player")?.clone();
+	if (!sprite) return mkEl("div", ["no sprite"]);
+	sprite.speed = 0;
+
+	const setSprite = (id: string) => {
+	}
+
+	const select = mkEl("select",
+		["<null>", ...sprite.animations.values().map(anim => anim.id)].map(id => {
+			const option = mkEl("option", [id]);
+			option.value = id;
+			return option;
+		}),
+	);
+	select.value = sprite.currentAnimation?.id ?? select.value;
+	select.addEventListener("change", () => sprite.play(select.value === "<null>" ? null : select.value));
+	sprite.addListener("changeAnim", id => select.value = id ?? "<null>");
+
+	sprite.play("idle");
+
+	console.log(sprite);
+
+	const SCALE = 6;
+	const SIZE = 128 * SCALE;
+	const ctx = mkCtx({
+		width: SIZE, height: SIZE,
+		pixelate: true,
+	});
+
+	const clear = () => {
+		ctx.clearRect(0, 0, SIZE, SIZE);
+
+		ctx.beginPath();
+		ctx.moveTo(SIZE / 2, 0);
+		ctx.lineTo(SIZE / 2, SIZE);
+		ctx.moveTo(0, SIZE / 2);
+		ctx.lineTo(SIZE, SIZE / 2);
+		ctx.strokeStyle = "#f00";
+		ctx.lineWidth = 2;
+		ctx.stroke();
+	}
+
+	ctx.canvas.classList.add("sprite");
+
+	const render = (dt: number) => {
+		clear();
+		sprite.advance(dt);
+		sprite.draw2dScaled(ctx, new Vector2(SIZE / 2), SCALE);
+		log.innerText =
+			`${sprite.currentAnimation?.id ?? null}` +
+			`\n#${sprite.animationFrame.toString().padStart(2, "0")} ${sprite.image.path}` +
+			`\n  t = ${sprite.animationTime.toFixed(3)}`;
+	}
+	let prev = performance.now();
+	const renderLoop = (now: number) => {
+		const ms = now - prev;
+		prev = now;
+		render(ms / 1000);
+		requestAnimationFrame(renderLoop);
+	}
+	requestAnimationFrame(renderLoop);
+
+	return mkEl("div", {
+		classes: ["section", "section-sprite"],
+		children: [
+			ctx.canvas,
+			mkEl("div", {
+				classes: ["panel"],
+				children: [
+					select,
+					log,
+				]
+			}),
+		]
+	});
+}
+
 
 const layout = mkEl("div");
 layout.classList.add("layout");
@@ -196,9 +299,12 @@ button.addEventListener("click", async () => {
 	);
 	console.log("Atlas:", atlas);
 
-	Sprite.readXml(atlas, "./assets/Sprites.xml");
-
 	layout.append(atlasDisplay(atlas));
+
+	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Sprites.xml");
+	console.log("Bank:", bank);
+
+	topDiv.after(spriteDisplay(bank));
 });
 topDiv.append(button);
 

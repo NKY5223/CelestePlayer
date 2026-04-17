@@ -1,23 +1,9 @@
 import { Rectangle } from "../utils/rectangle.js";
 import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.js";
 import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./data.worker.js";
+import { AtlasImage, AtlasTexture } from "./image.js";
+import { Vector2 } from "../utils/vector2.js";
 
-export type AtlasTexture = {
-	name: string;
-	width: number;
-	height: number;
-	image: CanvasImageSource;
-};
-export type AtlasImage = {
-	/** texture source */
-	texture: AtlasTexture;
-	/** name of image */
-	path: string;
-	/** uv coordinates of image in texture (integer pixel position) */
-	uv: Rectangle;
-	/** Offset image */
-	position: Rectangle;
-};
 /** 
  * Atlas images, grouped by names. Only use for displaying data.
  * @example
@@ -43,10 +29,19 @@ export type AtlasNameTree = {
 export class Atlas {
 	/** DO NOT MODIFY */
 	readonly images: Map<string, AtlasImage>;
-	/** DO NOT MODIFY */
+	/** 
+	 * contains *lowercase* ids, because celeste is WEIRD and 
+	 * uses case-insensitive `Dictionary`s for subtextures
+	 * JAVASCRIPT DOES NOT HAVE THIS FEATURE 
+	 * i get that they bundled it from windows but you can RENAME the file,,, please,,,
+	 * 
+	 * at least `.toLowerCase()` is essentially a map from `string` to 
+	 * its quotient over case-insensitive equality
+	 */
 	readonly subimages: Map<string, Map<number, AtlasImage>>;
 	/** DO NOT MODIFY */
 	readonly imageNameTree: AtlasNameTree;
+
 	constructor(
 		readonly textures: Map<string, AtlasTexture>,
 		meta: AtlasMetaTexture[],
@@ -57,15 +52,23 @@ export class Atlas {
 				?? err(new Error(`Could not find atlas texture with name ${name}`));
 			return images.map(({
 				path, sourceX, sourceY, sourceWidth, sourceHeight, centerX, centerY, width, height,
-			}) => [path, {
-				path,
+			}) => [path, new AtlasImage(
 				texture,
-				uv: Rectangle.fromSize(sourceX, sourceY, sourceWidth, sourceHeight),
-				position: Rectangle.fromSize(-centerX, -centerY, width, height),
-			} satisfies AtlasImage]);
+				path,
+				Rectangle.fromSize(sourceX, sourceY, sourceWidth, sourceHeight),
+				new Vector2(-centerX, -centerY),
+				new Vector2(width, height),
+			)]);
 		}));
 		this.imageNameTree = Atlas.toNameTree(this.images);
 		this.subimages = Atlas.generateSubimages(this.images);
+	}
+
+	getSubimagesSorted(path: string): [index: number, image: AtlasImage][] {
+		return this.subimages.get(path.toLowerCase())?.entries().toArray().sort(([a], [b]) => a - b) ?? [];
+	}
+	getSubimage(path: string, idx: number): AtlasImage | null {
+		return this.subimages.get(path.toLowerCase())?.get(idx) ?? null;
 	}
 
 	static toNameTree(
@@ -120,11 +123,13 @@ export class Atlas {
 	static generateSubimages = (images: Map<string, AtlasImage>): Map<string, Map<number, AtlasImage>> => {
 		const map = new Map<string, Map<number, AtlasImage>>();
 		for (const [path, img] of images) {
-			const match = path.match(/(\d+)$/);
+			const match = path.match(/^(.+?)(\d*)$/);
 			if (match === null) continue;
-			const num = parseInt(match[1]);
-			if (!isFinite(num) || num % 1 !== 0) continue;
-			map.getOrInsertComputed(path, () => new Map()).set(num, img);
+			// incredibly cursed, but it works
+			// this does mean xxx00 and xxx overwrite each other
+			const num = parseInt(match[2] || "0");
+			if (!isFinite(num)) continue;
+			map.getOrInsertComputed(match[1].toLowerCase(), () => new Map()).set(num, img);
 		}
 		return map;
 	}
