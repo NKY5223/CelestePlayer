@@ -178,11 +178,23 @@ canvas.pixelate {
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+		max-height: 75svh;
 	}
 	.log {
 		margin: 0;
 		white-space: pre-wrap;
 		cursor: default;
 		user-select: none;
+	}
+	.select {
+		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
+		gap: 1rem;
+		overflow: auto;
+
+		.active {
+			color: #2080ff;
+		}
 	}
 }

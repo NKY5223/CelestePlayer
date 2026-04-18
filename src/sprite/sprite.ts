@@ -64,7 +64,11 @@ export class Sprite implements HasEvents<SpriteEvents> {
 			return;
 		}
 		const anim = this.animations.get(id);
-		if (!anim) return;
+		if (!anim) {
+			console.warn("Unknown animation '%s'.", anim);
+			this.play(null);
+			return;
+		}
 
 		this.currentAnimation = anim;
 		this.animationTime = 0;
@@ -83,6 +87,9 @@ export class Sprite implements HasEvents<SpriteEvents> {
 		this.animationTime += time * this.speed;
 		this.checkTime();
 	}
+	playStart() {
+		this.play(this.start);
+	}
 
 	private checkTime() {
 		if (!this.currentAnimation) return;
@@ -90,14 +97,13 @@ export class Sprite implements HasEvents<SpriteEvents> {
 		// frames = Infinity,
 		// animationFrames -> Infinity,
 		// animationTime -> NaN
-		// and moveNext is called immediately.
-		// This is, surprisingly, exactly how a frametime of 0 is expected to behave, so
-		// happy little accident :3
-		// unless a 0-frame
-		const frames = Math.trunc(this.animationTime / this.currentAnimation.frametime);
+		// and if animationTime is 0, frames = NaN and everything breaks.
+		const frames = this.animationTime === 0 ? 0 : Math.trunc(this.animationTime / this.currentAnimation.frametime);
 		if (frames === 0) return;
 		this.animationFrame += frames;
 		this.animationTime -= frames * this.currentAnimation.frametime;
+		// reset to 0 when NaN
+		if (isNaN(this.animationFrame)) this.animationFrame = 0;
 		if (frames > 0) {
 			if (this.animationFrame >= this.currentAnimation.frames.length) {
 				this.moveNext();
@@ -121,10 +127,18 @@ export class Sprite implements HasEvents<SpriteEvents> {
 	}
 	private updateFrame() {
 		if (!this.currentAnimation) return;
-		this.#image = this.currentAnimation.frames[this.animationFrame];
+		this.setFrame(this.currentAnimation.frames[this.animationFrame]);
 		if (this.justify !== null) {
 			this.offset = this.justify.neg().mul(this.#image.size);
 		}
+	}
+	private setFrame(frame: AtlasImage | undefined) {
+		if (frame === undefined) {
+			// console.warn("Undefined frame passed", this.currentAnimation, this.animationFrame);
+			return;
+		}
+		if (this.#image === frame) return;
+		this.#image = frame;
 	}
 
 	addAnimation(animation: Animation) {

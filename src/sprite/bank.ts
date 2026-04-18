@@ -1,6 +1,7 @@
 import { Atlas } from "../atlas/atlas.js";
 import { AtlasImage } from "../atlas/image.js";
 import { Vector2 } from "../utils/vector2.js";
+import { chooserFromString } from "./chooser.js";
 import { Sprite } from "./sprite.js";
 
 type Animation = Sprite.Animation;
@@ -71,7 +72,7 @@ export class SpriteBank {
 			if (justify === null) {
 				console.error(s(`has a malformed <Justify>.`));
 			} else {
-				sprite.justify = justify.neg();
+				sprite.justify = justify;
 			}
 		} else if (Center) {
 			sprite.justify = new Vector2(.5);
@@ -111,7 +112,9 @@ export class SpriteBank {
 
 		const next = loop
 			? () => id
-			: () => goto;
+			: goto
+				? chooserFromString(goto, x => x)
+				: () => null;
 		return {
 			id,
 			path: relPath,
@@ -124,6 +127,13 @@ export class SpriteBank {
 	static transferAnimation(atlas: Atlas, src: Animation, rootPath: string): Animation | null {
 		try {
 			const frames = this.getIndexedFrames(atlas, (rootPath + src.path), src.frameIndices);
+			if (frames.length === 0) {
+				// console.warn(`Animation '%s' (copying %o at '%s') got 0 frames (illegal)`, src.id, src, rootPath);
+				return {
+					...src,
+					frames: [...src.frames]
+				};
+			}
 			return {
 				...src,
 				frames,
@@ -137,7 +147,6 @@ export class SpriteBank {
 		if (framesAttr === null || framesAttr === "") {
 			const all = atlas.getSubimagesSorted(path);
 			return all.map(([_, path]) => path);
-
 		};
 		const idxs = this.readCsvIntWithTricks(framesAttr);
 		return this.getFrames(atlas, path, idxs);

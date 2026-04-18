@@ -203,34 +203,18 @@ const atlasDisplay = (atlas: Atlas): Element => {
 const spriteDisplay = (bank: SpriteBank): Element => {
 	const log = mkEl("output", { classes: ["log"] });
 
-	const sprite = bank.get("player")?.clone();
-	if (!sprite) return mkEl("div", ["no sprite"]);
-	sprite.speed = 0;
+	const _sprite = bank.get("player")?.clone();
+	if (!_sprite) return mkEl("div", ["no sprite"]);
 
-	const setSprite = (id: string) => {
-	}
-
-	const select = mkEl("select",
-		["<null>", ...sprite.animations.values().map(anim => anim.id)].map(id => {
-			const option = mkEl("option", [id]);
-			option.value = id;
-			return option;
-		}),
-	);
-	select.value = sprite.currentAnimation?.id ?? select.value;
-	select.addEventListener("change", () => sprite.play(select.value === "<null>" ? null : select.value));
-	sprite.addListener("changeAnim", id => select.value = id ?? "<null>");
-
-	sprite.play("idle");
-
-	console.log(sprite);
-
+	let sprite: Sprite = _sprite;
+	
 	const SCALE = 6;
 	const SIZE = 128 * SCALE;
 	const ctx = mkCtx({
 		width: SIZE, height: SIZE,
 		pixelate: true,
 	});
+	ctx.canvas.classList.add("sprite");
 
 	const clear = () => {
 		ctx.clearRect(0, 0, SIZE, SIZE);
@@ -244,9 +228,6 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 		ctx.lineWidth = 2;
 		ctx.stroke();
 	}
-
-	ctx.canvas.classList.add("sprite");
-
 	const render = (dt: number) => {
 		clear();
 		sprite.advance(dt);
@@ -265,6 +246,44 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 	}
 	requestAnimationFrame(renderLoop);
 
+
+	const animSelect = mkEl("div", { classes: ["select"] });
+	let buttons: (readonly [string | null, HTMLButtonElement])[] = [];
+	const setterBtn = (value: string | null, display: string = value ?? "<null>") => {
+		const btn = mkEl("button", [display]);
+		btn.addEventListener("click", () => sprite.play(value));
+		return [value, btn] as const;
+	}
+	const updateSelect = () => {
+		animSelect.replaceChildren();
+		buttons = [setterBtn(null), ...sprite.animations.keys().map(k => setterBtn(k))];
+		animSelect.append(...buttons.map(a => a[1]));
+	}
+	const setSprite = (name: string) => {
+		const n = bank.get(name);
+		if (!n) return;
+		sprite = n;
+		updateSelect();
+		sprite.playStart();
+		console.log(sprite);
+	}
+	sprite.addListener("changeAnim", id => buttons.forEach(([k, el]) =>
+		el.classList[k === id ? "add" : "remove"]("active")
+	));
+
+	const spriteSelect = mkEl("select", [...bank.sprites.entries().map(([name, sprite]) => {
+		const option = mkEl("option", [name]);
+		option.value = name;
+		return option;
+	})]);
+	spriteSelect.addEventListener("input", () => {
+		setSprite(spriteSelect.value);
+	});
+
+	updateSelect();
+
+	sprite.playStart();
+
 	return mkEl("div", {
 		classes: ["section", "section-sprite"],
 		children: [
@@ -272,8 +291,9 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 			mkEl("div", {
 				classes: ["panel"],
 				children: [
-					select,
+					spriteSelect,
 					log,
+					animSelect,
 				]
 			}),
 		]
