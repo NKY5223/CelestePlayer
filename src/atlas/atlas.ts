@@ -1,7 +1,8 @@
 import { Rectangle } from "../utils/rectangle.js";
 import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.js";
 import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./data.worker.js";
-import { AtlasImage, AtlasTexture } from "./image.js";
+import { AtlasImage } from "./image.js";
+import { AtlasTexture } from "./texture.js";
 import { Vector2 } from "../utils/vector2.js";
 
 /** 
@@ -26,112 +27,90 @@ export type AtlasNameTree = {
 	/** Image associated with this node. */
 	image?: AtlasImage;
 };
+/** 
+ * An {@linkcode Atlas} is a map of {@linkcode AtlasImage}s and subimages (like `xxx00`, `xxx01`).
+ */
 export class Atlas {
 	/** DO NOT MODIFY */
-	readonly images: Map<string, AtlasImage>;
+	readonly images: Map<string, AtlasImage> = new Map();
 	/** 
 	 * contains *lowercase* ids, because celeste is WEIRD and 
 	 * uses case-insensitive `Dictionary`s for subtextures
 	 * JAVASCRIPT DOES NOT HAVE THIS FEATURE 
 	 * i get that they bundled it from windows but you can RENAME the file,,, please,,,
 	 * 
+	 * TODO: sort this map so you don't have to resort for `getSubimages` every time
+	 * 
+	 * fnuuy thing idk why i wrote this:
+	 * 
 	 * at least `.toLowerCase()` is essentially a map from `string` to 
 	 * its quotient over case-insensitive equality
 	 */
-	readonly subimages: Map<string, Map<number, AtlasImage>>;
+	protected readonly subimages: Map<string, Map<number, AtlasImage>> = new Map();
 	/** DO NOT MODIFY */
-	readonly imageNameTree: AtlasNameTree;
+	readonly imageNameTree: AtlasNameTree = { name: "<root>" };
 
 	constructor(
 		readonly textures: Map<string, AtlasTexture>,
 		meta: AtlasMetaTexture[],
 	) {
 		const err = (e: unknown) => { throw e; };
-		this.images = new Map(meta.flatMap(({ name, images }) => {
+		const images = meta.flatMap(({ name, images }) => {
 			const texture = textures.get(name)
 				?? err(new Error(`Could not find atlas texture with name ${name}`));
 			return images.map(({
 				path, sourceX, sourceY, sourceWidth, sourceHeight, centerX, centerY, width, height,
-			}) => [path, new AtlasImage(
+			}) => new AtlasImage(
 				texture,
 				path,
 				Rectangle.fromSize(sourceX, sourceY, sourceWidth, sourceHeight),
 				new Vector2(-centerX, -centerY),
 				new Vector2(width, height),
-			)]);
-		}));
-		this.imageNameTree = Atlas.toNameTree(this.images);
-		this.subimages = Atlas.generateSubimages(this.images);
+			));
+		});
+		images.forEach(i => this.addImage(i));
 	}
 
-	getSubimagesSorted(path: string): [index: number, image: AtlasImage][] {
-		return this.subimages.get(path.toLowerCase())?.entries().toArray().sort(([a], [b]) => a - b) ?? [];
-	}
-	getSubimage(path: string, idx: number): AtlasImage | null {
-		return this.subimages.get(path.toLowerCase())?.get(idx) ?? null;
-	}
+	addImage(image: AtlasImage) {
+		const path = image.path;
+		this.images.set(path, image);
 
-	static toNameTree(
-		images: Map<string, AtlasImage>,
-		root: AtlasNameTree = { name: "" }, overwrite: boolean = false
-	): AtlasNameTree {
-		const lookup = new Map<string, AtlasNameTree>([
-			["", root]
-		]);
-		const findEntry = (path: string): AtlasNameTree => {
-			// path: "a/b/c/d" => [d, c, b, a].
-			const tails: string[] = [];
-			while (true) {
-				const parent = lookup.get(path);
-				if (parent) {
-					const [_, tree] = tails.reduceRight(([path, node], tail) => {
-						const child: AtlasNameTree = {
-							name: tail,
-						};
-						if (path) path += "/";
-						path += tail;
-						(node.children ??= new Map<string, AtlasNameTree>()).set(tail, child);
-						lookup.set(path, child)
-						return [path, child];
-					}, [path, parent]);
-					return tree;
-				}
-
-				const slash = path.lastIndexOf("/");
-				if (slash < 0) {
-					tails.push(path);
-					path = "";
-					continue;
-				}
-				tails.push(path.slice(slash + 1));
-				path = path.slice(0, slash);
-			}
+		const parts = path.split("/");
+		let tree = this.imageNameTree;
+		for (const part of parts) {
+			const children = tree.children ??= new Map<string, AtlasNameTree>();
+			tree = children.getOrInsertComputed(part, name => ({ name }));
 		}
-		const addEntry = (img: AtlasImage) => {
-			const entry = findEntry(img.path);
-			if (entry.image && !overwrite) {
-				console.error("unreachable! Atlas image tried to ", img, entry.image);
-			}
-			entry.image = img;
-		};
+		tree.image = image;
 
-		images.forEach(addEntry);
-
-		return root;
-	}
-
-	static generateSubimages = (images: Map<string, AtlasImage>): Map<string, Map<number, AtlasImage>> => {
-		const map = new Map<string, Map<number, AtlasImage>>();
-		for (const [path, img] of images) {
-			const match = path.match(/^(.+?)(\d*)$/);
-			if (match === null) continue;
+		const match = path.match(/^(.+?)(\d*)$/);
+		if (match !== null) {
 			// incredibly cursed, but it works
 			// this does mean xxx00 and xxx overwrite each other
+			// but that seems like desired behaviour
 			const num = parseInt(match[2] || "0");
-			if (!isFinite(num)) continue;
-			map.getOrInsertComputed(match[1].toLowerCase(), () => new Map()).set(num, img);
+			if (isFinite(num)) {
+				this.subimages.getOrInsertComputed(match[1].toLowerCase(), () => new Map()).set(num, image);
+			}
 		}
-		return map;
+	}
+
+	get(path: string): AtlasImage | null {
+		return this.images.get(path) ?? null;
+	}
+
+	getSubimage(path: string, idx: number): AtlasImage | null {
+		return this.getSubimagesFor(path)?.get(idx) ?? null;
+	}
+	getSubimages(path: string): AtlasImage[] {
+		return this.getSubimagesWithIndex(path).map(([_, img]) => img);
+	}
+	/** Returns the subimages for `path`, sorted according to index. */
+	getSubimagesWithIndex(path: string): [index: number, image: AtlasImage][] {
+		return this.subimages.get(path.toLowerCase())?.entries().toArray().sort(([a], [b]) => a - b) ?? [];
+	}
+	getSubimagesFor(path: string): Map<number, AtlasImage> | null {
+		return this.subimages.get(path.toLowerCase()) ?? null;
 	}
 
 	static readFromUrls = async (
@@ -149,12 +128,9 @@ export class Atlas {
 		]);
 
 		return new Atlas(
-			new Map(images.map(([name, image]) => [name, {
-				name,
-				image,
-				width: image.width,
-				height: image.height,
-			} satisfies AtlasTexture])),
+			new Map(images.map(([name, image]) =>
+				[name, new AtlasTexture(image, name, image.width, image.height)]
+			)),
 			meta
 		);
 	}

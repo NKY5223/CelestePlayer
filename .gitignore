@@ -3,5 +3,5 @@ node_modules
 
 dst
 
-# don't commit assets rn
-assets
+# don't commit celeste assets rn
+assets/Graphics

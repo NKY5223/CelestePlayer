@@ -1,54 +1,13 @@
 import { Atlas, AtlasNameTree } from "./atlas/atlas.js";
 import { AtlasImage } from "./atlas/image.js";
-import { Graph } from "./graph.js";
+import { SpriteAnimation } from "./sprite/animation.js";
 import { SpriteBank } from "./sprite/bank.js";
+import { PlayerSprite } from "./sprite/player.js";
 import { Sprite } from "./sprite/sprite.js";
+import { mkCtx, mkEl } from "./utils/dom.js";
+import { Graph } from "./utils/graph.js";
+import { Rectangle } from "./utils/rectangle.js";
 import { Vector2 } from "./utils/vector2.js";
-
-const mkEl = <K extends keyof HTMLElementTagNameMap>(tag: K, options?: {
-	id?: string;
-	classes?: string[];
-	children?: (string | Node)[];
-} | (string | Node)[]): HTMLElementTagNameMap[K] => {
-	const el = document.createElement(tag);
-	if (Array.isArray(options)) {
-		el.append(...options)
-	} else if (options !== undefined) {
-		const { id, classes, children } = options;
-		if (id !== undefined) el.id = id;
-		if (classes !== undefined) el.classList.add(...classes);
-		if (children !== undefined) el.append(...children);
-	}
-	return el;
-}
-const mkCtx = (options: {
-	width?: number;
-	height?: number;
-	pixelate?: boolean;
-	/** what size to make the canvas (css pixel / canvas pixel). */
-	scale?: number;
-} = {}) => {
-	const {
-		width, height,
-		pixelate = false,
-		scale,
-	} = options;
-	const canvas = document.createElement("canvas");
-	const ctx = canvas.getContext("2d");
-	if (!ctx) throw "no ctx";
-	if (width !== undefined) canvas.width = width;
-	if (height !== undefined) canvas.height = height;
-	if (scale !== undefined) {
-		canvas.style.width = `${canvas.width * scale}px`;
-		canvas.style.height = `${canvas.height * scale}px`;
-	}
-	if (pixelate) {
-		canvas.classList.add("pixelate");
-		// cannot be done too early or it resets??
-		ctx.imageSmoothingEnabled = false;
-	}
-	return ctx;
-}
 
 const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => {
 	const graph = new Graph({
@@ -71,7 +30,8 @@ const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => 
 	})];
 }
 
-const makeAtlasTree = (
+
+const mkAtlasTree = (
 	name: string | Node, tree: AtlasNameTree,
 	highlight?: (img: AtlasImage) => void
 ): Element => {
@@ -106,7 +66,7 @@ const makeAtlasTree = (
 								1)
 					.map(([name, child]) =>
 						mkEl("li", [
-							makeAtlasTree(name, child, highlight)
+							mkAtlasTree(name, child, highlight)
 						])
 					)
 				)
@@ -117,6 +77,47 @@ const makeAtlasTree = (
 		]);
 
 	return main;
+}
+
+const mkSpriteSelector = (bank: SpriteBank, setSprite: (name: string) => void, restrict?: string[]) => {
+	const names = restrict ?? bank.sprites.keys();
+	const el = mkEl("select", [...names.map(name => {
+		const option = mkEl("option", [name]);
+		option.value = name;
+		return option;
+	})]);
+	el.addEventListener("input", () => setSprite(el.value));
+	return el;
+}
+
+const mkAnimSelector = (sprite: Sprite) => {
+	const el = mkEl("div", { classes: ["select"] });
+	let buttons: (readonly [string | null, HTMLButtonElement])[] = [];
+	const mkBtn = (sprite: Sprite, value: string | null, display: string = value ?? "<null>") => {
+		const btn = mkEl("button", [display]);
+		btn.addEventListener("click", () => {
+			sprite.play(value);
+			// console.log("Playing", value === null ? null : sprite.animations.get(value));
+		});
+		return [value, btn] as const;
+	}
+	const update = (sprite: Sprite) => {
+		el.replaceChildren();
+		buttons = [
+			mkBtn(sprite, null),
+			...sprite.animations.keys().map(k => mkBtn(sprite, k))
+		];
+		el.append(...buttons.map(a => a[1]));
+
+		const updateBtns = (id = sprite.currentAnimation?.id ?? null) => buttons.forEach(([k, el]) =>
+			el.classList[k === id ? "add" : "remove"]("active")
+		);
+		sprite.addListener("changeAnim", updateBtns);
+		updateBtns();
+	}
+	update(sprite);
+
+	return [el, update] as const;
 }
 
 const atlasDisplay = (atlas: Atlas): Element => {
@@ -189,9 +190,9 @@ const atlasDisplay = (atlas: Atlas): Element => {
 		}
 	});
 
-	ctx.drawImage(texture0.image, 0, 0);
+	ctx.drawImage(texture0.source, 0, 0);
 
-	treeDiv.append(makeAtlasTree("<root>", atlas.imageNameTree, highlight));
+	treeDiv.append(mkAtlasTree("<root>", atlas.imageNameTree, highlight));
 	atlasDiv.append(canvas, overlay);
 
 	return mkEl("div", {
@@ -207,7 +208,7 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 	if (!_sprite) return mkEl("div", ["no sprite"]);
 
 	let sprite: Sprite = _sprite;
-	
+
 	const SCALE = 6;
 	const SIZE = 128 * SCALE;
 	const ctx = mkCtx({
@@ -231,11 +232,13 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 	const render = (dt: number) => {
 		clear();
 		sprite.advance(dt);
-		sprite.draw2dScaled(ctx, new Vector2(SIZE / 2), SCALE);
-		log.innerText =
+		sprite.draw2dScaled(ctx, new Vector2(SIZE / 2), new Vector2(SCALE));
+		log.value =
 			`${sprite.currentAnimation?.id ?? null}` +
 			`\n#${sprite.animationFrame.toString().padStart(2, "0")} ${sprite.image.path}` +
-			`\n  t = ${sprite.animationTime.toFixed(3)}`;
+			`\n  t = ${sprite.animationTime.toFixed(3)}` +
+			`\n  speed = ${sprite.speed.toFixed(3)}`
+			;
 	}
 	let prev = performance.now();
 	const renderLoop = (now: number) => {
@@ -246,41 +249,27 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 	}
 	requestAnimationFrame(renderLoop);
 
+	const speedSlider = mkEl("input");
+	speedSlider.type = "range";
+	speedSlider.min = "-5";
+	speedSlider.max = "5";
+	speedSlider.step = "0.1";
+	speedSlider.value = String(sprite.speed);
+	speedSlider.addEventListener("input", () => sprite.speed = +speedSlider.value);
 
-	const animSelect = mkEl("div", { classes: ["select"] });
-	let buttons: (readonly [string | null, HTMLButtonElement])[] = [];
-	const setterBtn = (value: string | null, display: string = value ?? "<null>") => {
-		const btn = mkEl("button", [display]);
-		btn.addEventListener("click", () => sprite.play(value));
-		return [value, btn] as const;
-	}
-	const updateSelect = () => {
-		animSelect.replaceChildren();
-		buttons = [setterBtn(null), ...sprite.animations.keys().map(k => setterBtn(k))];
-		animSelect.append(...buttons.map(a => a[1]));
-	}
+	const [animSelect, updateAnimSelect] = mkAnimSelector(sprite);
 	const setSprite = (name: string) => {
 		const n = bank.get(name);
 		if (!n) return;
-		sprite = n;
-		updateSelect();
+		sprite = n.clone();
 		sprite.playStart();
-		console.log(sprite);
+		sprite.speed = +speedSlider.value;
+		updateAnimSelect(sprite);
 	}
-	sprite.addListener("changeAnim", id => buttons.forEach(([k, el]) =>
-		el.classList[k === id ? "add" : "remove"]("active")
-	));
 
-	const spriteSelect = mkEl("select", [...bank.sprites.entries().map(([name, sprite]) => {
-		const option = mkEl("option", [name]);
-		option.value = name;
-		return option;
-	})]);
-	spriteSelect.addEventListener("input", () => {
-		setSprite(spriteSelect.value);
-	});
+	const spriteSelect = mkSpriteSelector(bank, setSprite);
 
-	updateSelect();
+	updateAnimSelect(sprite);
 
 	sprite.playStart();
 
@@ -293,6 +282,7 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 				children: [
 					spriteSelect,
 					log,
+					speedSlider,
 					animSelect,
 				]
 			}),
@@ -300,6 +290,121 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 	});
 }
 
+const playerSpriteDisplay = (bank: SpriteBank): Element => {
+	const log = mkEl("output", { classes: ["log"] });
+
+	const _sprite = bank.get("player")?.clone();
+	if (!_sprite) return mkEl("div", ["no sprite"]);
+	let sprite: Sprite = _sprite;
+	let playerSprite: PlayerSprite = new PlayerSprite(sprite);
+	let facing = 1;
+
+	const bangses = sprite.atlas.getSubimagesFor("characters/player/bangs");
+	if (!bangses) return mkEl("div", ["no bangs"]);
+	const bangsFallback = bangses.get(0);
+	if (!bangsFallback) return mkEl("div", ["no bangs"]);
+
+	const SCALE = 6;
+	const SIZE = 128 * SCALE;
+	const ctx = mkCtx({
+		width: SIZE, height: SIZE,
+		pixelate: true,
+	});
+	ctx.canvas.classList.add("sprite");
+	const pos = new Vector2(SIZE / 2);
+	const scale = new Vector2(SCALE);
+
+	const clear = () => {
+		ctx.clearRect(0, 0, SIZE, SIZE);
+
+		ctx.beginPath();
+		ctx.moveTo(SIZE / 2, 0);
+		ctx.lineTo(SIZE / 2, SIZE);
+		ctx.moveTo(0, SIZE / 2);
+		ctx.lineTo(SIZE, SIZE / 2);
+		ctx.strokeStyle = "#f00";
+		ctx.lineWidth = 2;
+		ctx.stroke();
+	}
+	const render = (dt: number) => {
+		clear();
+		const flip = new Vector2(Math.sign(facing), 1);
+		const scaledFacing = new Vector2(SCALE * facing, SCALE);
+
+		sprite.advance(dt);
+
+		const hairOffset = playerSprite.hairOffset;
+		if (hairOffset) {
+			const bangsIndex = playerSprite.bangsFrame;
+			const bangs = bangses.get(bangsIndex) ?? AtlasImage.FALLBACK;
+			const bangsOffset = new Vector2(-5);
+
+			// Vector2 vector = Sprite.HairOffset * new Vector2((float)Facing, 1f);
+			// Nodes[0] = Sprite.RenderPosition + new Vector2(0f, -9f * Sprite.Scale.Y) + vector;
+			const hairPos = new Vector2(0, -9 * sprite.scale.y).add(hairOffset.mul(flip)).add(bangsOffset);
+			// ctx.scale(facing, 1);
+			bangs.draw2dScaled(ctx, pos.add(hairPos.mul(scaledFacing)), scaledFacing);
+		}
+
+		sprite.draw2dScaled(ctx, pos, scaledFacing);
+
+		log.value =
+			`${sprite.currentAnimation?.id ?? null}` +
+			`\n#${sprite.animationFrame.toString().padStart(2, "0")} ${sprite.image.path}` +
+			`\n  t = ${sprite.animationTime.toFixed(3)}` +
+			`\n  speed = ${sprite.speed.toFixed(3)}`
+			;
+	}
+	let prev = performance.now();
+	const renderLoop = (now: number) => {
+		const ms = now - prev;
+		prev = now;
+		render(ms / 1000);
+		requestAnimationFrame(renderLoop);
+	}
+	requestAnimationFrame(renderLoop);
+
+	const speedSlider = mkEl("input");
+	speedSlider.type = "range";
+	speedSlider.min = "-5";
+	speedSlider.max = "5";
+	speedSlider.step = "0.1";
+	speedSlider.value = String(sprite.speed);
+	speedSlider.addEventListener("input", () => sprite.speed = +speedSlider.value);
+
+	const [animSelect, updateAnimSelect] = mkAnimSelector(sprite);
+	const setSprite = (name: string) => {
+		const spr = bank.get(name);
+		if (!spr) return;
+		sprite = spr.clone();
+		sprite.playStart();
+		sprite.speed = +speedSlider.value;
+		playerSprite = new PlayerSprite(sprite);
+		updateAnimSelect(sprite);
+	}
+
+	const spriteSelect = mkSpriteSelector(bank, setSprite, ["player", "player_no_backpack", "player_badeline", "player_playback", "badeline"]);
+
+	updateAnimSelect(sprite);
+
+	sprite.playStart();
+
+	return mkEl("div", {
+		classes: ["section", "section-sprite"],
+		children: [
+			ctx.canvas,
+			mkEl("div", {
+				classes: ["panel"],
+				children: [
+					spriteSelect,
+					log,
+					speedSlider,
+					animSelect,
+				]
+			}),
+		]
+	});
+}
 
 const layout = mkEl("div");
 layout.classList.add("layout");
@@ -312,23 +417,34 @@ button.addEventListener("click", async () => {
 	button.disabled = true;
 
 	const atlas = await Atlas.readFromUrls(
-		"./assets/Gameplay.meta",
+		"./assets/Graphics/Atlases/Gameplay.meta",
 		new Map([
-			["Gameplay0", "./assets/Gameplay0.data"]
+			["Gameplay0", "./assets/Graphics/Atlases/Gameplay0.data"]
 		])
 	);
 	console.log("Atlas:", atlas);
 
 	layout.append(atlasDisplay(atlas));
 
-	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Sprites.xml");
+	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Graphics/Sprites.xml");
 	console.log("Bank:", bank);
 
-	topDiv.after(spriteDisplay(bank));
+	topDiv.after(playerSpriteDisplay(bank));
 });
 topDiv.append(button);
 
 
 document.addEventListener("DOMContentLoaded", () => {
 	document.body.append(layout);
+
+	// const ctx = mkCtx({ width: 32, height: 32 });
+	// const img = new Image(32, 32);
+	// img.onload = () => {
+	// 	ctx.drawImage(img, 0, 0);
+	// 	console.log(ctx.canvas.toDataURL());
+	// }
+	// img.src = `./assets/fallback.png`;
+	// document.body.append(ctx.canvas);
 });
+
+Object.assign(window, { Atlas, AtlasImage, Sprite, SpriteBank, SpriteAnimation, Rectangle, Vector2 });

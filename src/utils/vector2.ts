@@ -10,5 +10,6 @@ export class Vector2 {
 		return `${this.x},${this.y}`;
 	}
 
-	static readonly ZERO = new Vector2(0, 0);
+	static readonly ZERO = new Vector2(0);
+	static readonly ONE = new Vector2(1);
 }

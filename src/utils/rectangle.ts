@@ -1,7 +1,10 @@
-/** An *axis-aligned* rectangle. */
+import { Vector2 } from "./vector2.js";
+
+/** An *axis-aligned* rectangle, defined by its left, right, top and bottom edges. */
 export class Rectangle {
-	width = this.right - this.left;
-	height = this.bottom - this.top;
+	readonly width = this.right - this.left;
+	readonly height = this.bottom - this.top;
+	readonly size = new Vector2(this.width, this.height);
 	constructor(readonly left: number, readonly right: number, readonly top: number, readonly bottom: number) { }
 
 	static fromSize(x: number, y: number, width: number, height: number): Rectangle {
