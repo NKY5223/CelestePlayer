@@ -2,7 +2,7 @@ import { Rectangle } from "../utils/rectangle.js";
 import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.js";
 import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./data.worker.js";
 import { AtlasImage } from "./image.js";
-import { AtlasTexture } from "./texture.js";
+import { Texture } from "./texture.js";
 import { Vector2 } from "../utils/vector2.js";
 
 /** 
@@ -51,7 +51,7 @@ export class Atlas {
 	readonly imageNameTree: AtlasNameTree = { name: "<root>" };
 
 	constructor(
-		readonly textures: Map<string, AtlasTexture>,
+		readonly textures: Map<string, Texture>,
 		meta: AtlasMetaTexture[],
 	) {
 		const err = (e: unknown) => { throw e; };
@@ -129,7 +129,7 @@ export class Atlas {
 
 		return new Atlas(
 			new Map(images.map(([name, image]) =>
-				[name, new AtlasTexture(image, name, image.width, image.height)]
+				[name, new Texture(image, name, image.width, image.height)]
 			)),
 			meta
 		);

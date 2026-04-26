@@ -10,6 +10,8 @@ type SpriteEvents = {
 	play: SpriteAnimation;
 	/** Fires when currentAnimation changes */
 	changeAnim: string | null;
+	/** Fires when the frame changes */
+	changeFrame: AtlasImage;
 };
 export class Sprite implements HasEvents<SpriteEvents> {
 	// #region Data
@@ -24,6 +26,7 @@ export class Sprite implements HasEvents<SpriteEvents> {
 	animationTime: number = 0;
 	speed: number = 1;
 
+	/** ONLY MODIFY VIA {@linkcode Sprite.setFrame setFrame}. */
 	#image: AtlasImage = AtlasImage.FALLBACK;
 	public get image(): AtlasImage { return this.#image; }
 	// #endregion
@@ -143,6 +146,7 @@ export class Sprite implements HasEvents<SpriteEvents> {
 		}
 		if (this.#image === frame) return;
 		this.#image = frame;
+		this.events.dispatch("changeFrame", frame);
 	}
 
 	addAnimation(animation: SpriteAnimation) {

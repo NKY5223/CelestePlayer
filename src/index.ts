@@ -436,15 +436,6 @@ topDiv.append(button);
 
 document.addEventListener("DOMContentLoaded", () => {
 	document.body.append(layout);
-
-	// const ctx = mkCtx({ width: 32, height: 32 });
-	// const img = new Image(32, 32);
-	// img.onload = () => {
-	// 	ctx.drawImage(img, 0, 0);
-	// 	console.log(ctx.canvas.toDataURL());
-	// }
-	// img.src = `./assets/fallback.png`;
-	// document.body.append(ctx.canvas);
 });
 
 Object.assign(window, { Atlas, AtlasImage, Sprite, SpriteBank, SpriteAnimation, Rectangle, Vector2 });

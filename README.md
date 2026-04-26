@@ -1,6 +1,8 @@
 playback for stateexporter files
 this project is really object-oriented because c# is.
 
+The fallback texture (assets/fallback-16.png) is from Everest.
+
 ## how to build
 just use `npm run dev` idk
 you also need `assets/Graphics` to be like celeste's `Content/Graphics`

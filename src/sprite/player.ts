@@ -1,3 +1,4 @@
+import { AtlasImage } from "../atlas/image.js";
 import { zipDefault } from "../utils/array.js";
 import { parseVector2, tryParseInt } from "../utils/parse.js";
 import { Vector2 } from "../utils/vector2.js";
@@ -11,6 +12,12 @@ export type PlayerFrameData = {
 };
 export class PlayerSprite {
 	readonly frameData: Map<string, PlayerFrameData>;
+
+	#current: PlayerFrameData | null = null;
+	get current() {
+		return this.#current;
+	}
+
 	constructor(
 		readonly sprite: Sprite
 	) {
@@ -19,20 +26,21 @@ export class PlayerSprite {
 			.flatMap(el => [...el.querySelectorAll("Frames")])
 			.flatMap(xml => PlayerSprite.parseFrames(xml, sprite));
 		this.frameData = new Map(data);
+		sprite.addListener("changeFrame", img => this.update(img));
+	}
+	update(img: AtlasImage): void {
+		this.#current = this.frameData.get(img.path) ?? null;
 	}
 
-	get currentData() {
-		return this.frameData.get(this.sprite.image.path);
-	}
 	/** `null` means hair should not be drawn now. */
 	get hairOffset() {
-		return this.currentData?.hairOffset ?? null;
+		return this.#current?.hairOffset ?? null;
 	}
 	get bangsFrame() {
-		return this.currentData?.bangsFrame ?? 0;
+		return this.#current?.bangsFrame ?? 0;
 	}
 	get carryYOffset() {
-		return (this.currentData?.carryYOffset ?? 0);
+		return (this.#current?.carryYOffset ?? 0);
 	}
 
 	static parseFrames(xml: Element, sprite: Sprite) {

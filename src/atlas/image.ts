@@ -1,12 +1,12 @@
 import { Rectangle } from "../utils/rectangle.js";
 import { Vector2 } from "../utils/vector2.js";
-import { AtlasTexture } from "./texture.js";
+import { Texture } from "./texture.js";
 
 /** The equivalent of Monocle's `MTexture`, specifically for atlas images. */
 export class AtlasImage {
 	constructor(
 		/** texture source */
-		readonly texture: AtlasTexture,
+		readonly texture: Texture,
 		/** name of image */
 		readonly path: string,
 		/** uv coordinates of image in texture (integer pixel position) */
@@ -37,10 +37,8 @@ export class AtlasImage {
 	}
 
 	static readonly FALLBACK = new AtlasImage(
-		AtlasTexture.FALLBACK,
+		Texture.FALLBACK,
 		"__fallback",
-		// undefined,
-		// AtlasTexture.FALLBACK.size.scale(-.5),
 	);
 
 	toString() {
