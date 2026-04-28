@@ -134,10 +134,10 @@ export class SpriteSource {
 		 */
 		readonly animations: SpriteAnimationSource[],
 		/**
-		 * The `<Metadata>` element in the element, which contains arbitrary information 
+		 * The `<Metadata>` elements in the element (plus any copied metadata), which contains arbitrary information 
 		 * (see {@linkcode PlayerSprite} for one use).
 		 */
-		readonly metadata: Element | null,
+		readonly metadata: Element[],
 	) { }
 
 	/** Parses an XML element into a {@linkcode Sprite}, appending source info to it. */
@@ -169,7 +169,7 @@ export class SpriteSource {
 		const Origin = $("Origin");
 		const Justify = $("Justify");
 		const Center = $("Center");
-		const metadata = $("Metadata");
+		const metadata = [...$$("Metadata")];
 
 		const position = this.doPosition(sprite, Origin, Justify, Center);
 

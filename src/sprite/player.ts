@@ -26,10 +26,11 @@ export class PlayerSprite {
 			.flatMap(el => [...el.querySelectorAll("Frames")])
 			.flatMap(xml => PlayerSprite.parseFrames(xml, sprite));
 		this.frameData = new Map(data);
-		sprite.addListener("changeFrame", img => this.update(img));
+		sprite.addListener("changeFrame", () => this.updateCurrent());
+		this.updateCurrent();
 	}
-	update(img: AtlasImage): void {
-		this.#current = this.frameData.get(img.path) ?? null;
+	updateCurrent(): void {
+		this.#current = this.frameData.get(this.sprite.image.path) ?? null;
 	}
 
 	/** `null` means hair should not be drawn now. */

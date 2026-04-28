@@ -48,7 +48,7 @@ canvas.pixelate {
 .section {
 	position: relative;
 	padding: 1rem;
-	/* overflow: auto; */
+	overflow: auto;
 
 	&.section-big {
 		height: 75svh;
@@ -96,6 +96,7 @@ canvas.pixelate {
 	.atlas-scroller {
 		height: 100%;
 		width: 100%;
+		min-width: 30rem;
 		overflow: auto;
 	}
 	.atlas-container {

@@ -17,7 +17,7 @@ export class Sprite implements HasEvents<SpriteEvents> {
 	// #region Data
 	readonly sources: SpriteSource[] = [];
 	/** All `<Metadata>`s of this {@linkcode Sprite}'s {@linkcode SpriteSource}s. */
-	public get metadata(): Element[] { return this.sources.map(s => s.metadata).filter(m => !!m); }
+	public get metadata(): Element[] { return this.sources.flatMap(s => s.metadata); }
 	// #endregion
 
 	// #region Animation state
