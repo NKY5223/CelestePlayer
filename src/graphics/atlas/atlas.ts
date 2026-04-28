@@ -1,9 +1,9 @@
-import { Rectangle } from "../utils/rectangle.js";
+import { Rectangle } from "../../utils/rectangle.js";
 import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.js";
 import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./data.worker.js";
 import { AtlasImage } from "./image.js";
 import { Texture } from "./texture.js";
-import { Vector2 } from "../utils/vector2.js";
+import { Vector2 } from "../../utils/vector2.js";
 
 /** 
  * Atlas images, grouped by names. Only use for displaying data.

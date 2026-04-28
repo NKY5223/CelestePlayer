@@ -1,7 +1,7 @@
 import { AtlasImage } from "../atlas/image.js";
-import { zipDefault } from "../utils/array.js";
-import { parseVector2, tryParseInt } from "../utils/parse.js";
-import { Vector2 } from "../utils/vector2.js";
+import { zipDefault } from "../../utils/array.js";
+import { parseVector2, tryParseInt } from "../../utils/parse.js";
+import { Vector2 } from "../../utils/vector2.js";
 import { Sprite } from "./sprite.js";
 
 export type PlayerFrameData = {

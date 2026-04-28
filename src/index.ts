@@ -1,9 +1,9 @@
-import { Atlas, AtlasNameTree } from "./atlas/atlas.js";
-import { AtlasImage } from "./atlas/image.js";
-import { SpriteAnimation } from "./sprite/animation.js";
-import { SpriteBank } from "./sprite/bank.js";
-import { PlayerSprite } from "./sprite/player.js";
-import { Sprite } from "./sprite/sprite.js";
+import { Atlas, AtlasNameTree } from "./graphics/atlas/atlas.js";
+import { AtlasImage } from "./graphics/atlas/image.js";
+import { SpriteAnimation } from "./graphics/sprite/animation.js";
+import { SpriteBank } from "./graphics/sprite/bank.js";
+import { PlayerSprite } from "./graphics/sprite/player.js";
+import { Sprite } from "./graphics/sprite/sprite.js";
 import { mkCtx, mkEl } from "./utils/dom.js";
 import { Graph } from "./utils/graph.js";
 import { Rectangle } from "./utils/rectangle.js";

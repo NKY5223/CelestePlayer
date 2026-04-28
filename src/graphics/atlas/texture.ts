@@ -1,5 +1,5 @@
-import { Vector2 } from "../utils/vector2.js";
-import fallbackSrc from "../../assets/fallback-16.png";
+import { Vector2 } from "../../utils/vector2.js";
+import fallbackSrc from "../../../assets/fallback-16.png";
 
 
 const fallbackImg = new Image(32, 32);

@@ -1,6 +1,6 @@
 import { Atlas } from "../atlas/atlas.js";
 import { AtlasImage } from "../atlas/image.js";
-import { tryParseFloat } from "../utils/parse.js";
+import { tryParseFloat } from "../../utils/parse.js";
 import { chooserFromString } from "./chooser.js";
 import { Sprite } from "./sprite.js";
 

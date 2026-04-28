@@ -1,7 +1,7 @@
 // See README.md for my comments on this
 /// <reference lib="webworker" />
 
-import { BinaryBufferReader } from "../binary/bufferReader.js";
+import { BinaryBufferReader } from "../../binary/bufferReader.js";
 
 export type AtlasMetaImage = {
 	path: string;
