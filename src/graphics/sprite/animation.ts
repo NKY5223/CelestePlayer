@@ -30,10 +30,6 @@ export class SpriteAnimation {
 		readonly frameIndices: string | null,
 	) { }
 
-	transfer(sprite: Sprite): SpriteAnimation {
-		return SpriteAnimation.transferTo(this, sprite) ?? this;
-	}
-
 	clone(override: Partial<SpriteAnimation> = {}) {
 		const {
 			id,
@@ -52,92 +48,4 @@ export class SpriteAnimation {
 		);
 		return anim;
 	}
-
-	static parseXml(sprite: Sprite, el: Element): SpriteAnimation {
-		const atlas = sprite.atlas;
-		const attr = el.getAttribute.bind(el);
-		const thr0 = (msg: string) => { throw new Error(`Animation in sprite '${sprite.name}' ${msg}`); }
-
-		const loop = el.tagName === "Loop";
-		const id = attr("id")
-			?? thr0(`is missing [id].`);
-
-		const thr = (msg: string) => { throw new Error(`Animation '${id}' in sprite '${sprite.name}' ${msg}`); }
-
-		const relPath = attr("path") ?? "";
-		const frametime = tryParseFloat(attr("delay")) ?? sprite.defaultFrametime;
-		const framesAttr = attr("frames");
-		const goto = attr("goto");
-
-		const path = sprite.path + relPath;
-		const frames = this.getIndexedFrames(atlas, path, framesAttr);
-
-		const next = loop
-			? () => id
-			: goto
-				? chooserFromString(goto, x => x)
-				: () => null;
-		return new SpriteAnimation(
-			id,
-			frametime,
-			frames,
-			next,
-			relPath,
-			framesAttr,
-		);
-	}
-	static transferTo(src: SpriteAnimation, sprite: Sprite): SpriteAnimation | null {
-		try {
-			const frames = this.getIndexedFrames(sprite.atlas, (sprite.path + src.path), src.frameIndices);
-			if (frames.length === 0) {
-				// console.warn(`Animation '%s' (copying %o at '%s') got 0 frames.`, src.id, src, rootPath);
-				return src.clone();
-			}
-			return src.clone({ frames });
-		} catch (err) {
-			return null;
-		}
-	}
-
-	static getIndexedFrames(atlas: Atlas, path: string, framesAttr: string | null): AtlasImage[] {
-		if (framesAttr === null || framesAttr === "") {
-			return atlas.getSubimages(path);
-		};
-		const idxs = this.readCsvIntWithTricks(framesAttr);
-		return this.getFrames(atlas, path, idxs);
-	}
-	static getFrames(atlas: Atlas, path: string, indices: number[]): AtlasImage[] {
-		const thr = (msg: string) => { throw new Error(msg); };
-		const subs = atlas.getSubimagesFor(path);
-		if (!subs) return [];
-		return indices.map(i => subs.get(i)
-			?? thr(`Could not find frame #${i} in '${path}'`));
-	}
-
-	/** 
-	 * Reads comma-seperated natural numbers.
-	 * - `a-b` for an inclusive range  
-	 *     e.g. `3-6` => `3,4,5,6`
-	 * - `a*b` for repeated values  
-	 *     e.g. `3*4` => `3,3,3,3`
-	 * 
-	 * (see `Calc.ReadCSVIntWithTricks` in `Monocle.Calc`)
-	 */
-	static readCsvIntWithTricks = (str: string): number[] => str.split(",").flatMap(seg => {
-		if (seg.includes("-")) {
-			const [a, b] = seg.split("-");
-			const first = parseInt(a);
-			const last = parseInt(b);
-			const d = last - first;
-			const sd = Math.sign(d);
-			return Array.from({ length: Math.abs(d) + 1 }, (_, i) => first + i * sd);
-		}
-		if (seg.includes("*")) {
-			const [a, b] = seg.split("*");
-			const val = parseInt(a);
-			const count = parseInt(b);
-			return new Array<number>(count).fill(val);
-		}
-		return parseInt(seg);
-	});
 };

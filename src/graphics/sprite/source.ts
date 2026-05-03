@@ -1,6 +1,6 @@
 import { Atlas } from "../atlas/atlas.js";
 import { AtlasImage } from "../atlas/image.js";
-import { Vector2 } from "../../utils/vector2.js";
+import { Vector2 } from "../../utils/vector.js";
 import { parseXmlVector2, tryParseFloat } from "../../utils/parse.js";
 import { SpriteAnimation } from "./animation.js";
 import { chooserFromString } from "./chooser.js";

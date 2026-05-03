@@ -1,4 +1,4 @@
-import { Vector2 } from "./vector2.js";
+import { Vector2 } from "./vector.js";
 
 /** Like {@linkcode parseFloat}, but will return `null` instead of `NaN`. */
 export const tryParseFloat = (str: string | null | undefined): number | null => {

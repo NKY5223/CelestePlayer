@@ -4,10 +4,14 @@ import { SpriteAnimation } from "./graphics/sprite/animation.js";
 import { SpriteBank } from "./graphics/sprite/bank.js";
 import { PlayerSprite } from "./graphics/sprite/player.js";
 import { Sprite } from "./graphics/sprite/sprite.js";
+import { WebGlBase, WebGlType } from "./graphics/webgl/base.js";
+import { InterleavedAttribManager } from "./graphics/webgl/interleaved.js";
+import { SeperateBufferAttribManager } from "./graphics/webgl/seperateBuffers.js";
+import { Color } from "./utils/color.js";
 import { mkCtx, mkEl } from "./utils/dom.js";
 import { Graph } from "./utils/graph.js";
 import { Rectangle } from "./utils/rectangle.js";
-import { Vector2 } from "./utils/vector2.js";
+import { Matrix4, Vector2, Vector3, Vector4 } from "./utils/vector.js";
 
 const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => {
 	const graph = new Graph({
@@ -406,6 +410,81 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 	});
 }
 
+const webglDisplay = (): Element => {
+	const canvas = mkEl("canvas");
+	canvas.width = 100;
+	canvas.height = 100;
+
+	const gl = canvas.getContext("webgl");
+	if (!gl) return mkEl("span", ["no webgl"]);
+
+	const draw = new WebGlBase(gl, `
+precision mediump float;
+attribute vec3 aPos;
+attribute vec4 aColor;
+uniform mat4 uViewProj;
+varying vec4 vColor;
+
+void main() { 
+	vColor = aColor;
+	gl_Position = uViewProj * vec4(aPos, 1); 
+}
+`, `
+precision mediump float;
+varying vec4 vColor;
+
+void main() { 
+	gl_FragColor = vColor; 
+}
+`
+	);
+	type Vertex = {
+		pos: Vector2;
+		color: Color;
+	};
+	const attribs = InterleavedAttribManager.autoLayout(draw, [
+		["aPos", WebGlType.Float3],
+		["aColor", WebGlType.Float4],
+	], ({ pos, color }: Vertex) => ({
+		aPos: new Vector3(pos.x, pos.y, 0),
+		aColor: color,
+	}));
+
+	const sx = 1;
+	const sy = 1;
+	const cx = 1;
+	const cy = 1;
+	const viewProjScale: Matrix4 = Matrix4.diag(sx, sy, 1, 1);
+	const viewProjTranslate: Matrix4 = Matrix4.diag(-cx, -cy, 1, 1);
+	const viewProj = viewProjScale.mulMat(viewProjTranslate);
+
+	const vertices: Vertex[] = [
+		{
+			pos: new Vector2(0, -1),
+			color: Color.fromHex(0xff0000, 1),
+		},
+		{
+			pos: new Vector2(1, 1),
+			color: Color.fromHex(0x00ff00, 1),
+		},
+		{
+			pos: new Vector2(-1, 1),
+			color: Color.fromHex(0x0000ff, 1),
+		},
+	];
+	attribs.addVertices(vertices);
+	draw.setUniformFMat4("uViewProj", viewProj);
+	attribs.flush();
+	draw.draw(3);
+
+	return mkEl("div", {
+		classes: ["section"],
+		children: [
+			canvas
+		]
+	});
+}
+
 const layout = mkEl("div");
 layout.classList.add("layout");
 const topDiv = mkEl("div", { classes: ["section"] });
@@ -424,12 +503,14 @@ button.addEventListener("click", async () => {
 	);
 	console.log("Atlas:", atlas);
 
-	layout.append(atlasDisplay(atlas));
+	// layout.append(atlasDisplay(atlas));
 
 	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Graphics/Sprites.xml");
 	console.log("Bank:", bank);
 
-	topDiv.after(playerSpriteDisplay(bank));
+	// topDiv.after(playerSpriteDisplay(bank));
+
+	layout.append(webglDisplay());
 });
 topDiv.append(button);
 

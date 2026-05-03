@@ -1,4 +1,4 @@
-import { Vector2 } from "../../utils/vector2.js";
+import { Vector2 } from "../../utils/vector.js";
 import fallbackSrc from "../../../assets/fallback-16.png";
 
 

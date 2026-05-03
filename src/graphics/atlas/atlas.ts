@@ -3,7 +3,7 @@ import type { AtlasMetaIn, AtlasMetaOut, AtlasMetaTexture } from "./meta.worker.
 import type { AtlasDataIn, AtlasDataOut, AtlasDataReadInfo } from "./data.worker.js";
 import { AtlasImage } from "./image.js";
 import { Texture } from "./texture.js";
-import { Vector2 } from "../../utils/vector2.js";
+import { Vector2 } from "../../utils/vector.js";
 
 /** 
  * Atlas images, grouped by names. Only use for displaying data.

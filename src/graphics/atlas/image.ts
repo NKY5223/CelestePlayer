@@ -1,5 +1,5 @@
 import { Rectangle } from "../../utils/rectangle.js";
-import { Vector2 } from "../../utils/vector2.js";
+import { Vector2 } from "../../utils/vector.js";
 import { Texture } from "./texture.js";
 
 /** The equivalent of Monocle's `MTexture`, specifically for atlas images. */

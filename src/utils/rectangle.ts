@@ -1,4 +1,4 @@
-import { Vector2 } from "./vector2.js";
+import { Vector2 } from "./vector.js";
 
 /** An *axis-aligned* rectangle, defined by its left, right, top and bottom edges. */
 export class Rectangle {

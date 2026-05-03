@@ -1,7 +1,6 @@
-// See README.md for my comments on this
-/// <reference lib="webworker" />
-
 import { BinaryBufferReader } from "../../binary/bufferReader.js";
+import { WorkerSelf } from "../../webworker.js";
+declare const self: WorkerSelf;
 
 export type AtlasMetaImage = {
 	path: string;

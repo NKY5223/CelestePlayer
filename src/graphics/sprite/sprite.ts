@@ -1,7 +1,7 @@
 import { Atlas } from "../atlas/atlas.js";
 import { AtlasImage } from "../atlas/image.js";
 import { EventManager, HasEvents } from "../../utils/events.js";
-import { Vector2 } from "../../utils/vector2.js";
+import { Vector2 } from "../../utils/vector.js";
 import { SpriteAnimation } from "./animation.js";
 import { SpriteSource } from "./source.js";
 
