@@ -1,18 +1,5 @@
-export type Gl = WebGLRenderingContext;
-export type GlUsage = (
-	// | "STREAM_READ"
-	// | "STREAM_COPY"
-	// | "STATIC_READ"
-	// | "STATIC_COPY"
-	// | "DYNAMIC_READ"
-	// | "DYNAMIC_COPY"
-	| "STREAM_DRAW"
-	| "STATIC_DRAW"
-	| "DYNAMIC_DRAW"
-);
 
 // #region WebGl types
-
 /** Treat as enum type. Do not copy/create instances. */
 export type WebGlType = {
 	readonly type: "BYTE" | "SHORT" | "UNSIGNED_BYTE" | "UNSIGNED_SHORT" | "FLOAT";
@@ -32,7 +19,6 @@ export const WebGlType = {
 } as const satisfies Record<string, WebGlType>;
 
 // #region webgl-like ts types
-
 type Comp2 = 0 | 1;
 type Comp3 = Comp2 | 2;
 type Comp4 = Comp3 | 3;
@@ -76,9 +62,30 @@ export declare namespace WebGlType {
 }
 // #endregion
 
+export type Gl = WebGLRenderingContext;
+export type GlUsage = (
+	// | "STREAM_READ"
+	// | "STREAM_COPY"
+	// | "STATIC_READ"
+	// | "STATIC_COPY"
+	// | "DYNAMIC_READ"
+	// | "DYNAMIC_COPY"
+	| "STREAM_DRAW"
+	| "STATIC_DRAW"
+	| "DYNAMIC_DRAW"
+);
+export type GlTexture2DTarget = `TEXTURE_2D`;
+export type GlTextureCubeTarget = `TEXTURE_CUBE_MAP_${`POSITIVE` | `NEGATIVE`}_${`X` | `Y` | `Z`}`;
+export type GlTextureTarget =
+	| GlTexture2DTarget
+	| GlTextureCubeTarget;
+export type GlTextureFormat = `RGB` | `RGBA` | `LUMINANCE_ALPHA` | `LUMINANCE` | `ALPHA`;
+export type GlTextureType = `UNSIGNED_BYTE` | `UNSIGNED_SHORT_${`5_6_5` | `4_4_4_4` | `5_5_5_1`}`;
+export type GlTextureSlot = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type GlTextureSource = ImageBitmap | ImageData | HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | OffscreenCanvas;
 
 /** Basic information manager for a WebGL program. */
-export class WebGlBase {
+export class WebGlBase implements Disposable {
 	readonly program: WebGLProgram;
 	readonly uniformLocations: Map<string, WebGLUniformLocation | null> = new Map();
 	readonly attribLocations: Map<string, GLint> = new Map();
@@ -89,6 +96,7 @@ export class WebGlBase {
 		this.program = WebGlBase.createProgram(gl, vert, frag);
 	}
 
+	// #region general stuff
 	clear() {
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT | this.gl.STENCIL_BUFFER_BIT);
 	}
@@ -96,6 +104,16 @@ export class WebGlBase {
 		this.gl.useProgram(this.program);
 		this.gl.drawArrays(this.gl.TRIANGLES, 0, count);
 	}
+	useProgram(): void { this.gl.useProgram(this.program); }
+
+	dispose(): void {
+		this.gl.deleteProgram(this.program);
+		this.uniformLocations.clear();
+		this.attribLocations.clear();
+	}
+	[Symbol.dispose](): void { this.dispose(); }
+	// #endregion
+
 
 	// #region uniform set
 
@@ -153,9 +171,16 @@ export class WebGlBase {
 			value["30"], value["31"], value["32"], value["33"],
 		]);
 	}
-
+	/** Sets a `sampler2D` uniform. */
+	setUniformSampler2D(name: string, target: GlTexture2DTarget, slot: GlTextureSlot, texture: WebGLTexture): void {
+		this.useProgram();
+		const loc = this.getUniformLocation(name);
+		this.setTextureSlot(texture, target, slot);
+		this.gl.uniform1i(loc, slot);
+	}
 	// #endregion
 
+	// #region buffer
 	/** Fill a buffer with data. */
 	setBuffer(buffer: WebGLBuffer, data: AllowSharedBufferSource, usage: GlUsage = "DYNAMIC_DRAW") {
 		this.useProgram();
@@ -174,7 +199,65 @@ export class WebGlBase {
 		this.gl.enableVertexAttribArray(index);
 		this.gl.vertexAttribPointer(index, type.size, this.gl[type.type], normalized, stride, offset);
 	}
+	// #endregion
 
+	// #region texture
+	createTexture(): WebGLTexture {
+		return this.gl.createTexture();
+	}
+	setTexturePixels(
+		texture: WebGLTexture,
+		/** If `target` is `TEXTURE_CUBE_MAP_...`, will bind texture to `TEXTURE_CUBE_MAP` */
+		target: GlTextureTarget,
+		level: GLint,
+		format: GlTextureFormat,
+		width: GLsizei, height: GLsizei,
+		border: GLint,
+		type: GlTextureType,
+		data: ArrayBufferView<ArrayBufferLike>,
+	) {
+		this.gl.bindTexture(this.toTextureBindTarget(target), texture);
+		this.gl.texImage2D(this.gl[target], level, this.gl[format], width, height, border, this.gl[format], this.gl[type], data);
+	}
+	setTextureSource(
+		texture: WebGLTexture,
+		/** If `target` is `TEXTURE_CUBE_MAP_...`, will bind texture to `TEXTURE_CUBE_MAP` */
+		target: GlTextureTarget,
+		level: GLint,
+		format: GlTextureFormat,
+		type: GlTextureType,
+		src: GlTextureSource,
+	) {
+		this.gl.bindTexture(this.toTextureBindTarget(target), texture);
+		console.log([target], level, [format], [format], [type], src, (src as HTMLImageElement).complete);
+		this.gl.texImage2D(this.gl[target], level, this.gl[format], this.gl[format], this.gl[type], src);
+	}
+	setTextureSlot(texture: WebGLTexture, target: GlTextureTarget, slot: GlTextureSlot): void {
+		this.gl.activeTexture(this.gl[`TEXTURE${slot}`]);
+		this.gl.bindTexture(this.toTextureBindTarget(target), texture);
+	}
+	/** Fill a texture with a single #f0f pixel. */
+	setPlaceholderTexture(
+		texture: WebGLTexture,
+		target: `TEXTURE_${`2D` | `CUBE_MAP_${`POSITIVE` | `NEGATIVE`}_${`X` | `Y` | `Z`}`}`,
+	) {
+		this.setTexturePixels(
+			texture, target,
+			0,
+			`RGB`,
+			1, 1,
+			0,
+			`UNSIGNED_BYTE`,
+			new Uint8Array([255, 0, 255, 255])
+		);
+	}
+
+	private toTextureBindTarget(target: GlTextureTarget) {
+		return target.startsWith("TEXTURE_CUBE_MAP") ? this.gl.TEXTURE_CUBE_MAP : this.gl[target];
+	}
+	// #endregion
+
+	// #region location
 	getUniformLocation(name: string): WebGLUniformLocation | null {
 		return this.uniformLocations.getOrInsertComputed(name, name => {
 			this.useProgram();
@@ -187,15 +270,10 @@ export class WebGlBase {
 			return this.gl.getAttribLocation(this.program, name);
 		});
 	}
+	// #endregion
 
-	useProgram(): void { this.gl.useProgram(this.program); }
 
-	dispose(): void {
-		this.gl.deleteProgram(this.program);
-		this.uniformLocations.clear();
-		this.attribLocations.clear();
-	}
-
+	// #region creation
 	/**
 	 * Creates and links a program with a vertex and fragment shader, then **deletes the shaders**.
 	 * @throws if program creation/linking failed.
@@ -231,7 +309,9 @@ export class WebGlBase {
 		}
 		return shader;
 	}
+	// #endregion
 
+	// #region sizeof
 	/** Size of a (scalar) webgl value, in bytes. */
 	static sizeofSingle(type: WebGlType["type"]): number {
 		switch (type) {
@@ -247,4 +327,5 @@ export class WebGlBase {
 	}
 	/** Size of a webgl value, in bytes. */
 	static sizeof(type: WebGlType): number { return this.sizeofSingle(type.type) * type.size; }
+	// #endregion
 }

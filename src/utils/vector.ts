@@ -1,6 +1,6 @@
 import { WebGlLike } from "../graphics/webgl/base.js";
 
-/** A 4d column vector. */
+/** A 2d column vector. */
 export class Vector2 implements WebGlLike.Float2 {
 	constructor(
 		readonly x: number = 0,
@@ -26,7 +26,7 @@ export class Vector2 implements WebGlLike.Float2 {
 
 	static isVector2(value: unknown): value is Vector2 { return value instanceof Vector2; }
 }
-/** A 4d column vector. */
+/** A 3d column vector. */
 export class Vector3 implements WebGlLike.Float3 {
 	constructor(
 		readonly x: number = 0,

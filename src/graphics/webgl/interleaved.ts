@@ -52,8 +52,6 @@ export class InterleavedAttribManager<T, const L extends Layout> {
 		}
 		this.clearBatch();
 		this.base.setBuffer(this.buffer, data, "DYNAMIC_DRAW");
-
-		console.log(data);
 	}
 	clearBatch() { this.batch.length = 0; }
 

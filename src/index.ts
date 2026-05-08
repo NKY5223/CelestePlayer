@@ -6,12 +6,11 @@ import { PlayerSprite } from "./graphics/sprite/player.js";
 import { Sprite } from "./graphics/sprite/sprite.js";
 import { WebGlBase, WebGlType } from "./graphics/webgl/base.js";
 import { InterleavedAttribManager } from "./graphics/webgl/interleaved.js";
-import { SeperateBufferAttribManager } from "./graphics/webgl/seperateBuffers.js";
 import { Color } from "./utils/color.js";
 import { mkCtx, mkEl } from "./utils/dom.js";
 import { Graph } from "./utils/graph.js";
 import { Rectangle } from "./utils/rectangle.js";
-import { Matrix4, Vector2, Vector3, Vector4 } from "./utils/vector.js";
+import { Matrix4, Vector2, Vector3 } from "./utils/vector.js";
 
 const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => {
 	const graph = new Graph({
@@ -410,10 +409,10 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 	});
 }
 
-const webglDisplay = (): Element => {
+const webglDisplay = (atlas: Atlas): Element => {
 	const canvas = mkEl("canvas");
-	canvas.width = 100;
-	canvas.height = 100;
+	canvas.width = 128;
+	canvas.height = 128;
 
 	const gl = canvas.getContext("webgl");
 	if (!gl) return mkEl("span", ["no webgl"]);
@@ -421,61 +420,75 @@ const webglDisplay = (): Element => {
 	const draw = new WebGlBase(gl, `
 precision mediump float;
 attribute vec3 aPos;
-attribute vec4 aColor;
+attribute vec2 aUV;
+varying vec2 vUV;
 uniform mat4 uViewProj;
-varying vec4 vColor;
 
 void main() { 
-	vColor = aColor;
+	vUV = aUV;
 	gl_Position = uViewProj * vec4(aPos, 1); 
 }
 `, `
 precision mediump float;
-varying vec4 vColor;
+varying vec2 vUV;
+uniform sampler2D uTexture;
 
 void main() { 
-	gl_FragColor = vColor; 
+	gl_FragColor = texture2D(uTexture, fract(vUV * 32.));
+	// gl_FragColor = vec4(vUV, 0, 1);
 }
 `
 	);
 	type Vertex = {
 		pos: Vector2;
-		color: Color;
+		uv: Vector2;
 	};
 	const attribs = InterleavedAttribManager.autoLayout(draw, [
 		["aPos", WebGlType.Float3],
-		["aColor", WebGlType.Float4],
-	], ({ pos, color }: Vertex) => ({
+		["aUV", WebGlType.Float2],
+	], ({ pos, uv }: Vertex) => ({
 		aPos: new Vector3(pos.x, pos.y, 0),
-		aColor: color,
+		aUV: uv,
 	}));
 
-	const sx = 1;
-	const sy = 1;
-	const cx = 1;
-	const cy = 1;
-	const viewProjScale: Matrix4 = Matrix4.diag(sx, sy, 1, 1);
-	const viewProjTranslate: Matrix4 = Matrix4.diag(-cx, -cy, 1, 1);
-	const viewProj = viewProjScale.mulMat(viewProjTranslate);
+	const image = new Image(64, 64);
 
+	const texture = draw.createTexture();
+	draw.setPlaceholderTexture(texture, "TEXTURE_2D");
+	image.onload = () => {
+		draw.setTextureSource(texture, "TEXTURE_2D", 0, "RGBA", "UNSIGNED_BYTE", image);
+	}
+	image.src = "./assets/fallback-16.png";
+
+	const tx = 0;
+	const ty = 0;
+	const viewProjRescale: Matrix4 = Matrix4.translate(-1, 1, 0).mulMat(Matrix4.diag(2, -2, 1, 1));
+	const viewProjTranslate: Matrix4 = Matrix4.translate(tx, ty, 0);
+	const viewProj = viewProjRescale.mulMat(viewProjTranslate);
+	console.log("view proj: ", viewProj);
+
+	const topLeft: Vertex = { pos: Vector2.ZERO, uv: Vector2.ZERO };
+	const topRight: Vertex = { pos: Vector2.X, uv: Vector2.X };
+	const bottomLeft: Vertex = { pos: Vector2.Y, uv: Vector2.Y };
+	const bottomRight: Vertex = { pos: Vector2.ONE, uv: Vector2.ONE };
 	const vertices: Vertex[] = [
-		{
-			pos: new Vector2(0, -1),
-			color: Color.fromHex(0xff0000, 1),
-		},
-		{
-			pos: new Vector2(1, 1),
-			color: Color.fromHex(0x00ff00, 1),
-		},
-		{
-			pos: new Vector2(-1, 1),
-			color: Color.fromHex(0x0000ff, 1),
-		},
+		topLeft,
+		topRight,
+		bottomRight,
+		topLeft,
+		bottomRight,
+		bottomLeft,
 	];
 	attribs.addVertices(vertices);
+
 	draw.setUniformFMat4("uViewProj", viewProj);
+	draw.setUniformSampler2D("uTexture", "TEXTURE_2D", 1, texture);
 	attribs.flush();
-	draw.draw(3);
+
+	draw.draw(vertices.length);
+	setInterval(() => {
+		draw.draw(vertices.length);
+	}, 1000);
 
 	return mkEl("div", {
 		classes: ["section"],
@@ -510,7 +523,7 @@ button.addEventListener("click", async () => {
 
 	// topDiv.after(playerSpriteDisplay(bank));
 
-	layout.append(webglDisplay());
+	layout.append(webglDisplay(atlas));
 });
 topDiv.append(button);
 

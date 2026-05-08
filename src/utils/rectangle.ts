@@ -11,6 +11,11 @@ export class Rectangle {
 		return new Rectangle(x, x + width, y, y + height);
 	}
 
+	get topLeft(): Vector2 { return new Vector2(this.left, this.top); }
+	get topRight(): Vector2 { return new Vector2(this.right, this.top); }
+	get bottomLeft(): Vector2 { return new Vector2(this.left, this.bottom); }
+	get bottomRight(): Vector2 { return new Vector2(this.right, this.bottom); }
+
 	/** Returns `true` iff point is in rectangle or on its boundary. */
 	contains(x: number, y: number): boolean {
 		return x >= this.left && x <= this.right && y >= this.top && y <= this.bottom;
