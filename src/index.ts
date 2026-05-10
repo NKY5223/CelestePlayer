@@ -413,8 +413,8 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 const webglDisplay = (atlas: Atlas): Element => {
 	// #region canvas setup
 	const canvas = mkEl("canvas");
-	canvas.width = 512;
-	canvas.height = 512;
+	canvas.width = 600;
+	canvas.height = 600;
 
 
 	const gl = canvas.getContext("webgl");
@@ -479,14 +479,22 @@ void main() {
 	const viewProj = viewProjRescale.mulMat(viewProjTranslateWorld);
 	console.log("view proj: ", viewProj);
 
-	indexManager.addIndices(
-		attribManager.addQuadIndexed(
+	indexManager.addIndex(
+		...attribManager.addQuadIndexed(
 			{ pos: Vector2.ZERO.mul(image.uv.size), uv: image.uv01.topLeft },
 			{ pos: Vector2.X.mul(image.uv.size), uv: image.uv01.topRight },
 			{ pos: Vector2.Y.mul(image.uv.size), uv: image.uv01.bottomLeft },
 			{ pos: Vector2.ONE.mul(image.uv.size), uv: image.uv01.bottomRight }
-		)
+		),
+		...attribManager.addQuadIndexed(
+			{ pos: Vector2.ZERO.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.topLeft },
+			{ pos: Vector2.X.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.topRight },
+			{ pos: Vector2.Y.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.bottomLeft },
+			{ pos: Vector2.ONE.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.bottomRight }
+		),
 	);
+	
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 	base.setUniformFMat4("uViewProj", viewProj);
 	base.setUniformSampler2D("uTexture", "TEXTURE_2D", 1, texture);

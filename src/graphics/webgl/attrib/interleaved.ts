@@ -118,4 +118,9 @@ export class InterleavedAttribManager<T, const L extends Layout> {
 		}
 		return new InterleavedAttribManager(base, layout, serialise);
 	}
+	static autoLayoutGeneric = <T>(): <const L extends Layout>(
+		base: WebGlBase,
+		layout: L,
+		toAttribs: (vertex: T) => LayoutValues<L>,
+	) => InterleavedAttribManager<T, L> => this.autoLayout;
 }

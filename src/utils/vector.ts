@@ -15,6 +15,11 @@ export class Vector2 implements WebGlLike.Float2 {
 	neg(): Vector2 { return new Vector2(-this.x, -this.y); }
 	dot(v: Vector2): number { return this.x * v.x + this.y * v.y; }
 
+	/** Returns a vector with just the x component of this one. */
+	justX(): Vector2 { return new Vector2(this.x, 0); }
+	/** Returns a vector with just the y component of this one. */
+	justY(): Vector2 { return new Vector2(0, this.y); }
+
 	toString(): string {
 		return `(${this.x}, ${this.y})`;
 	}
