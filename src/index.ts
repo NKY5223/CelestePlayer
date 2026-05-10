@@ -12,6 +12,7 @@ import { Graph } from "./utils/graph.js";
 import { Rectangle } from "./utils/rectangle.js";
 import { Matrix4, Vector2, Vector3 } from "./utils/vector.js";
 import { ElementIndexManager } from "./graphics/webgl/elements.js";
+import { TextureDraw } from "./graphics/webgl/textureDraw.js";
 
 const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => {
 	const graph = new Graph({
@@ -410,98 +411,47 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 	});
 }
 
-const webglDisplay = (atlas: Atlas): Element => {
+const webglDisplay = (atlas: Atlas, bank: SpriteBank): Element => {
 	// #region canvas setup
 	const canvas = mkEl("canvas");
-	canvas.width = 600;
-	canvas.height = 600;
+	canvas.width = 100;
+	canvas.height = 100;
+	canvas.style.width = canvas.style.height = `600px`;
+	canvas.style.imageRendering = "pixelated";
 
 
-	const gl = canvas.getContext("webgl");
+	const gl = canvas.getContext("webgl", {
+		// premultipliedAlpha: false,
+		antialias: false,
+	});
 	if (!gl) return mkEl("span", ["no webgl"]);
 	// #endregion
 
-	// #region webgl setup
-	const base = new WebGlBase(gl, `
-precision mediump float;
-attribute vec3 aPos;
-attribute vec2 aUV;
-varying vec2 vUV;
-uniform mat4 uViewProj;
+	const draw = new TextureDraw(gl);
 
-void main() { 
-	vUV = aUV;
-	gl_Position = uViewProj * vec4(aPos, 1); 
-}
-`, `
-precision mediump float;
-varying vec2 vUV;
-uniform sampler2D uTexture;
+	const sprite = bank.get("player")?.clone();
+	if (!sprite) return mkEl("span", ["no sprite"]);
+	sprite.playStart();
 
-void main() { 
-	gl_FragColor = texture2D(uTexture, vUV);
-	// gl_FragColor = vec4(vUV, 0, 1);
-	// gl_FragColor = vec4(vUV, 0, 1) + texture2D(uTexture, vUV);
-}
-`);
+	console.log(sprite);
 
-	type Vertex = {
-		pos: Vector2;
-		uv: Vector2;
-	};
-	const attribManager = InterleavedAttribManager.autoLayout(base, [
-		["aPos", WebGlType.Float3],
-		["aUV", WebGlType.Float2],
-	], ({ pos, uv }: Vertex) => ({
-		aPos: new Vector3(pos.x, pos.y, 0),
-		aUV: uv,
-	}));
+	const render = (dt: number, t: number) => {
+		sprite.advance(dt);
 
-	const indexManager = new ElementIndexManager(base);
-	// #endregion
+		// sprite.scale = Vector2.ONE;
+		draw.drawSprite(sprite, new Vector2(75, 50));
+		draw.render();
+		// console.log("Render");
 
-	const texture = base.createTexture();
-	base.setPlaceholderTexture(texture, "TEXTURE_2D");
-
-	const image = atlas.get("characters/player/idle00");
-	if (!image) return mkEl("span", ["no sprite"]);
-
-	base.setTextureSource(texture, image.texture.source, WebGlBase.Pixelated);
-
-	const tx = 0;
-	const ty = 0;
-	const scale = 12;
-	const viewProjRescale: Matrix4 = Matrix4
-		.translate(-1, 1, 0)
-		.mulMat(Matrix4.diag(2, -2, 1, 1))
-		.mulMat(Matrix4.diag(scale / canvas.width, scale / canvas.height, 1, 1));
-	const viewProjTranslateWorld: Matrix4 = Matrix4.translate(tx, ty, 0);
-	const viewProj = viewProjRescale.mulMat(viewProjTranslateWorld);
-	console.log("view proj: ", viewProj);
-
-	indexManager.addIndex(
-		...attribManager.addQuadIndexed(
-			{ pos: Vector2.ZERO.mul(image.uv.size), uv: image.uv01.topLeft },
-			{ pos: Vector2.X.mul(image.uv.size), uv: image.uv01.topRight },
-			{ pos: Vector2.Y.mul(image.uv.size), uv: image.uv01.bottomLeft },
-			{ pos: Vector2.ONE.mul(image.uv.size), uv: image.uv01.bottomRight }
-		),
-		...attribManager.addQuadIndexed(
-			{ pos: Vector2.ZERO.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.topLeft },
-			{ pos: Vector2.X.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.topRight },
-			{ pos: Vector2.Y.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.bottomLeft },
-			{ pos: Vector2.ONE.mul(image.uv.size).add(Vector2.ONE), uv: image.uv01.bottomRight }
-		),
-	);
-	
-	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-	base.setUniformFMat4("uViewProj", viewProj);
-	base.setUniformSampler2D("uTexture", "TEXTURE_2D", 1, texture);
-	attribManager.flush();
-	indexManager.flush();
-
-	base.drawElements(indexManager.count);
+		// canvas.style.backgroundColor = `hsl(${(t % 1) * 30}deg 50% 50%)`;
+	}
+	let prev = performance.now();
+	requestAnimationFrame(function renderLoop(now) {
+		const dt = Math.min((now - prev) / 1000, .5);
+		render(dt, now / 1000);
+		prev = now;
+		requestAnimationFrame(renderLoop);
+	});
 
 	return mkEl("div", {
 		classes: ["section"],
@@ -529,13 +479,11 @@ button.addEventListener("click", async () => {
 	);
 	console.log("Atlas:", atlas);
 
-
 	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Graphics/Sprites.xml");
 	console.log("Bank:", bank);
-
-	// topDiv.after(playerSpriteDisplay(bank));
-
-	layout.append(webglDisplay(atlas));
+	
+	layout.append(webglDisplay(atlas, bank));
+	layout.append(spriteDisplay(bank));
 	layout.append(atlasDisplay(atlas));
 });
 topDiv.append(button);

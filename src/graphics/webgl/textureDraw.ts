@@ -1,15 +1,12 @@
-import { Rectangle } from "../../utils/rectangle.js";
 import { Matrix4, Vector2, Vector3 } from "../../utils/vector.js";
 import { AtlasImage } from "../atlas/image.js";
 import { Texture } from "../atlas/texture.js";
+import { Sprite } from "../sprite/sprite.js";
 import { InterleavedAttribManager } from "./attrib/interleaved.js";
 import { Gl, WebGlBase, WebGlType } from "./base.js";
 import { ElementIndexManager } from "./elements.js";
 import frag from "./textureDraw.frag";
 import vert from "./textureDraw.vert";
-
-console.log("Vertex shader\n%s", vert);
-console.log("Fragment shader\n%s", frag);
 
 export declare namespace TextureDraw {
 	export type Vertex = {
@@ -27,6 +24,7 @@ export class TextureDraw {
 	protected readonly batch: TextureDraw.DrawnImage[] = [];
 	readonly textures = new WeakMap<Texture, WebGLTexture>();
 
+	/** Expects the context to have antialiasing off. */
 	constructor(readonly gl: Gl) { };
 	readonly base = new WebGlBase(this.gl, vert, frag);
 	readonly indexManager = new ElementIndexManager(this.base);
@@ -46,13 +44,24 @@ export class TextureDraw {
 		});
 	}
 
+	drawImage(image: AtlasImage, pos: Vector2, scale: Vector2 = Vector2.ONE) {
+		this.batch.push({
+			pos: pos.add(image.offset.mul(scale)),
+			size: image.uv.size.mul(scale),
+			image,
+		});
+	}
+	drawSprite(sprite: Sprite, pos: Vector2) {
+		this.drawImage(sprite.image, pos.add(sprite.scaledOffset), sprite.scale);
+	}
+
 	render() {
 		const gl = this.gl;
 		const canvas = gl.canvas;
 
 		const tx = 0;
 		const ty = 0;
-		const scale = 12;
+		const scale = 1;
 		const viewProjRescale: Matrix4 = Matrix4
 			.translate(-1, 1, 0)
 			.mulMat(Matrix4.diag(2, -2, 1, 1))
@@ -81,5 +90,7 @@ export class TextureDraw {
 			this.base.drawElements(this.indexManager.count);
 		}
 
+		this.clear();
 	}
+	clear(): void { this.batch.length = 0; }
 }

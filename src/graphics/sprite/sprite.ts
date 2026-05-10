@@ -36,9 +36,12 @@ export class Sprite implements HasEvents<SpriteEvents> {
 	justify: Vector2 | null = null;
 	/** If `justify` is nonnull, will get overridden on frame change. */
 	offset: Vector2 = Vector2.ZERO;
-	
+
 	/** Scale of texture, centered on origin (draw position). */
 	scale: Vector2 = Vector2.ONE;
+
+	/** {@linkcode offset} multiplied by {@linkcode scale}. Use for drawing. */
+	get scaledOffset(): Vector2 { return this.offset.mul(this.scale); }
 	// #endregion
 
 	protected readonly events: EventManager<SpriteEvents> = new EventManager();
@@ -56,10 +59,13 @@ export class Sprite implements HasEvents<SpriteEvents> {
 	) {
 	}
 
+	/** @deprecated */
 	draw2d(ctx: CanvasRenderingContext2D, pos: Vector2) {
 		this.draw2dScaled(ctx, pos, this.scale);
 	}
-	/** Draws sprite with a specific scale, overriding its own {@linkcode Sprite.scale scale}. */
+	/** Draws sprite with a specific scale, overriding its own {@linkcode Sprite.scale scale}.
+	 * @deprecated
+	 */
 	draw2dScaled(ctx: CanvasRenderingContext2D, pos: Vector2, scale: Vector2) {
 		this.#image.draw2dScaled(ctx, pos.add(this.offset.mul(scale)), scale);
 	}
@@ -80,7 +86,7 @@ export class Sprite implements HasEvents<SpriteEvents> {
 		this.currentAnimation = anim;
 		this.animationTime = 0;
 		// start at other end if speed is negative (rewinding)
-		// else it `MoveNext`s next frame
+		// else it `moveNext`s next frame
 		this.animationFrame = this.speed < 0 ? anim.frames.length - 1 : 0;
 
 		this.checkTime();

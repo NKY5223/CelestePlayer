@@ -332,6 +332,8 @@ export class WebGlBase implements Disposable {
 		downscaleFiltering: "NEAREST",
 		upscaleFiltering: "NEAREST",
 	};
+	static readonly Smooth: WebGlTextureSourceOptions = {
+	};
 
 	private toTextureBindTarget(target: GlTextureTarget) {
 		return target.startsWith("TEXTURE_CUBE_MAP") ? this.gl.TEXTURE_CUBE_MAP : this.gl[target];
