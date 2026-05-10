@@ -1,3 +1,4 @@
+import { Color } from "../../utils/color.js";
 import { Matrix4, Vector2, Vector3 } from "../../utils/vector.js";
 import { AtlasImage } from "../atlas/image.js";
 import { Texture } from "../atlas/texture.js";
@@ -12,14 +13,15 @@ export declare namespace TextureDraw {
 	export type Vertex = {
 		readonly pos: Vector2;
 		readonly uv: Vector2;
+		readonly color: Color;
 	};
 	export type DrawnImage = {
 		readonly pos: Vector2;
 		readonly size: Vector2;
 		readonly image: AtlasImage;
+		readonly color: Color;
 	};
 }
-type Vertex = TextureDraw.Vertex;
 export class TextureDraw {
 	protected readonly batch: TextureDraw.DrawnImage[] = [];
 	readonly textures = new WeakMap<Texture, WebGLTexture>();
@@ -28,12 +30,14 @@ export class TextureDraw {
 	constructor(readonly gl: Gl) { };
 	readonly base = new WebGlBase(this.gl, vert, frag);
 	readonly indexManager = new ElementIndexManager(this.base);
-	readonly attribManager = InterleavedAttribManager.autoLayoutGeneric<Vertex>()(this.base, [
+	readonly attribManager = InterleavedAttribManager.autoLayoutGeneric<TextureDraw.Vertex>()(this.base, [
 		["aPos", WebGlType.Float3],
 		["aUV", WebGlType.Float2],
-	], ({ pos, uv }) => ({
+		["aColor", WebGlType.Float4],
+	], ({ pos, uv, color, }) => ({
 		aPos: new Vector3(pos.x, pos.y, 0),
 		aUV: uv,
+		aColor: color,
 	}));
 
 	getWebGlTextureFor(texture: Texture): WebGLTexture {
@@ -44,10 +48,11 @@ export class TextureDraw {
 		});
 	}
 
-	drawImage(image: AtlasImage, pos: Vector2, scale: Vector2 = Vector2.ONE) {
+	drawImage(image: AtlasImage, pos: Vector2, scale: Vector2 = Vector2.ONE, color: Color = Color.WHITE) {
 		this.batch.push({
 			pos: pos.add(image.offset.mul(scale)),
 			size: image.uv.size.mul(scale),
+			color,
 			image,
 		});
 	}
@@ -55,6 +60,12 @@ export class TextureDraw {
 		this.drawImage(sprite.image, pos.add(sprite.scaledOffset), sprite.scale);
 	}
 
+	enableBlend() {
+		const gl = this.gl;
+		gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		gl.enable(gl.BLEND);
+		gl.disable(gl.DEPTH_TEST);
+	}
 	render() {
 		const gl = this.gl;
 		const canvas = gl.canvas;
@@ -69,16 +80,16 @@ export class TextureDraw {
 		const viewProjTranslateWorld: Matrix4 = Matrix4.translate(tx, ty, 0);
 		const viewProj = viewProjRescale.mulMat(viewProjTranslateWorld);
 
-		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		this.enableBlend();
 
-		for (const { pos, size, image } of this.batch) {
+		for (const { pos, size, image, color } of this.batch) {
 			const texture: WebGLTexture = this.getWebGlTextureFor(image.texture);
 			this.indexManager.addIndices(
 				this.attribManager.addQuadIndexed(
-					{ pos: pos, uv: image.uv01.topLeft },
-					{ pos: pos.add(size.justX()), uv: image.uv01.topRight },
-					{ pos: pos.add(size.justY()), uv: image.uv01.bottomLeft },
-					{ pos: pos.add(size), uv: image.uv01.bottomRight },
+					{ pos: pos, uv: image.uv01.topLeft, color },
+					{ pos: pos.add(size.justX()), uv: image.uv01.topRight, color },
+					{ pos: pos.add(size.justY()), uv: image.uv01.bottomLeft, color },
+					{ pos: pos.add(size), uv: image.uv01.bottomRight, color },
 				)
 			);
 

@@ -26,4 +26,6 @@ export class Color implements WebGlLike.Float4 {
 		const b = (hex >> 0) & 0xff;
 		return new Color(r / 0xff, g / 0xff, b / 0xff, a);
 	}
+
+	static readonly WHITE = new Color(1, 1, 1, 1);
 }

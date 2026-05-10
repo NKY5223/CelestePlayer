@@ -7,7 +7,7 @@ import { Sprite } from "./graphics/sprite/sprite.js";
 import { WebGlBase, WebGlType } from "./graphics/webgl/base.js";
 import { InterleavedAttribManager } from "./graphics/webgl/attrib/interleaved.js";
 import { Color } from "./utils/color.js";
-import { mkCtx, mkEl } from "./utils/dom.js";
+import { mkCtx, mkEl, mkGl } from "./utils/dom.js";
 import { Graph } from "./utils/graph.js";
 import { Rectangle } from "./utils/rectangle.js";
 import { Matrix4, Vector2, Vector3 } from "./utils/vector.js";
@@ -84,7 +84,7 @@ const mkAtlasTree = (
 	return main;
 }
 
-const mkSpriteSelector = (bank: SpriteBank, setSprite: (name: string) => void, restrict?: string[]) => {
+const mkSpriteSelector = (bank: SpriteBank, setSprite: (name: string) => void, restrict?: readonly string[]) => {
 	const names = restrict ?? bank.sprites.keys();
 	const el = mkEl("select", [...names.map(name => {
 		const option = mkEl("option", [name]);
@@ -206,152 +206,41 @@ const atlasDisplay = (atlas: Atlas): Element => {
 	});
 }
 
-const spriteDisplay = (bank: SpriteBank): Element => {
+
+const generalSpriteDisplay = (
+	bank: SpriteBank,
+	initialSprite: Sprite,
+	spriteSet?: readonly string[],
+	onRender: (draw: TextureDraw, sprite: Sprite, pos: Vector2, dt: number) => void = () => { },
+	onSetSprite: (sprite: Sprite) => void = () => { },
+): Element => {
 	const log = mkEl("output", { classes: ["log"] });
 
-	const _sprite = bank.get("player")?.clone();
-	if (!_sprite) return mkEl("div", ["no sprite"]);
-
-	let sprite: Sprite = _sprite;
+	let sprite: Sprite = initialSprite;
 
 	const SCALE = 6;
 	const SIZE = 128 * SCALE;
-	const ctx = mkCtx({
+	const [gl, canvas] = mkGl({
 		width: SIZE, height: SIZE,
 		pixelate: true,
-	});
-	ctx.canvas.classList.add("sprite");
-
-	const clear = () => {
-		ctx.clearRect(0, 0, SIZE, SIZE);
-
-		ctx.beginPath();
-		ctx.moveTo(SIZE / 2, 0);
-		ctx.lineTo(SIZE / 2, SIZE);
-		ctx.moveTo(0, SIZE / 2);
-		ctx.lineTo(SIZE, SIZE / 2);
-		ctx.strokeStyle = "#f00";
-		ctx.lineWidth = 2;
-		ctx.stroke();
-	}
-	const render = (dt: number) => {
-		clear();
-		sprite.advance(dt);
-		sprite.draw2dScaled(ctx, new Vector2(SIZE / 2), new Vector2(SCALE));
-		log.value =
-			`${sprite.currentAnimation?.id ?? null}` +
-			`\n#${sprite.animationFrame.toString().padStart(2, "0")} ${sprite.image.path}` +
-			`\n  t = ${sprite.animationTime.toFixed(3)}` +
-			`\n  speed = ${sprite.speed.toFixed(3)}`
-			;
-	}
-	let prev = performance.now();
-	const renderLoop = (now: number) => {
-		const ms = now - prev;
-		prev = now;
-		render(ms / 1000);
-		requestAnimationFrame(renderLoop);
-	}
-	requestAnimationFrame(renderLoop);
-
-	const speedSlider = mkEl("input");
-	speedSlider.type = "range";
-	speedSlider.min = "-5";
-	speedSlider.max = "5";
-	speedSlider.step = "0.1";
-	speedSlider.value = String(sprite.speed);
-	speedSlider.addEventListener("input", () => sprite.speed = +speedSlider.value);
-
-	const [animSelect, updateAnimSelect] = mkAnimSelector(sprite);
-	const setSprite = (name: string) => {
-		const n = bank.get(name);
-		if (!n) return;
-		sprite = n.clone();
-		sprite.playStart();
-		sprite.speed = +speedSlider.value;
-		updateAnimSelect(sprite);
-	}
-
-	const spriteSelect = mkSpriteSelector(bank, setSprite);
-
-	updateAnimSelect(sprite);
-
-	sprite.playStart();
-
-	return mkEl("div", {
-		classes: ["section", "section-sprite"],
-		children: [
-			ctx.canvas,
-			mkEl("div", {
-				classes: ["panel"],
-				children: [
-					spriteSelect,
-					log,
-					speedSlider,
-					animSelect,
-				]
-			}),
-		]
-	});
-}
-
-const playerSpriteDisplay = (bank: SpriteBank): Element => {
-	const log = mkEl("output", { classes: ["log"] });
-
-	const _sprite = bank.get("player")?.clone();
-	if (!_sprite) return mkEl("div", ["no sprite"]);
-	let sprite: Sprite = _sprite;
-	let playerSprite: PlayerSprite = new PlayerSprite(sprite);
-	let facing = 1;
-
-	const bangses = sprite.atlas.getSubimagesFor("characters/player/bangs");
-	if (!bangses) return mkEl("div", ["no bangs"]);
-	const bangsFallback = bangses.get(0);
-	if (!bangsFallback) return mkEl("div", ["no bangs"]);
-
-	const SCALE = 6;
-	const SIZE = 128 * SCALE;
-	const ctx = mkCtx({
-		width: SIZE, height: SIZE,
-		pixelate: true,
-	});
-	ctx.canvas.classList.add("sprite");
-	const pos = new Vector2(SIZE / 2);
-	const scale = new Vector2(SCALE);
-
-	const clear = () => {
-		ctx.clearRect(0, 0, SIZE, SIZE);
-
-		ctx.beginPath();
-		ctx.moveTo(SIZE / 2, 0);
-		ctx.lineTo(SIZE / 2, SIZE);
-		ctx.moveTo(0, SIZE / 2);
-		ctx.lineTo(SIZE, SIZE / 2);
-		ctx.strokeStyle = "#f00";
-		ctx.lineWidth = 2;
-		ctx.stroke();
-	}
-	const render = (dt: number) => {
-		clear();
-		const flip = new Vector2(Math.sign(facing), 1);
-		const scaledFacing = new Vector2(SCALE * facing, SCALE);
-
-		sprite.advance(dt);
-
-		const hairOffset = playerSprite.hairOffset;
-		if (hairOffset) {
-			const bangsIndex = playerSprite.bangsFrame;
-			const bangs = bangses.get(bangsIndex) ?? AtlasImage.FALLBACK;
-			const bangsOffset = new Vector2(-5);
-
-			// Vector2 vector = Sprite.HairOffset * new Vector2((float)Facing, 1f);
-			// Nodes[0] = Sprite.RenderPosition + new Vector2(0f, -9f * Sprite.Scale.Y) + vector;
-			const hairPos = new Vector2(0, -9 * sprite.scale.y).add(hairOffset.mul(flip)).add(bangsOffset);
-			// ctx.scale(facing, 1);
-			bangs.draw2dScaled(ctx, pos.add(hairPos.mul(scaledFacing)), scaledFacing);
+		contextOptions: {
+			antialias: false,
+			premultipliedAlpha: false,
 		}
+	});
+	canvas.classList.add("sprite");
+	const pos = new Vector2(SIZE / 2);
 
-		sprite.draw2dScaled(ctx, pos, scaledFacing);
+	const draw = new TextureDraw(gl);
+
+	const clear = () => {
+		gl.clearColor(0, 0, 0, 0);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+	}
+	const render = (dt: number) => {
+		clear();
+		sprite.advance(dt);
+		onRender(draw, sprite, pos, dt);
 
 		log.value =
 			`${sprite.currentAnimation?.id ?? null}` +
@@ -359,6 +248,8 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 			`\n  t = ${sprite.animationTime.toFixed(3)}` +
 			`\n  speed = ${sprite.speed.toFixed(3)}`
 			;
+
+		draw.render();
 	}
 	let prev = performance.now();
 	const renderLoop = (now: number) => {
@@ -384,11 +275,11 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 		sprite = spr.clone();
 		sprite.playStart();
 		sprite.speed = +speedSlider.value;
-		playerSprite = new PlayerSprite(sprite);
+		onSetSprite(sprite);
 		updateAnimSelect(sprite);
 	}
 
-	const spriteSelect = mkSpriteSelector(bank, setSprite, ["player", "player_no_backpack", "player_badeline", "player_playback", "badeline"]);
+	const spriteSelect = mkSpriteSelector(bank, setSprite, spriteSet);
 
 	updateAnimSelect(sprite);
 
@@ -397,7 +288,7 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 	return mkEl("div", {
 		classes: ["section", "section-sprite"],
 		children: [
-			ctx.canvas,
+			canvas,
 			mkEl("div", {
 				classes: ["panel"],
 				children: [
@@ -411,55 +302,77 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 	});
 }
 
-const webglDisplay = (atlas: Atlas, bank: SpriteBank): Element => {
-	// #region canvas setup
-	const canvas = mkEl("canvas");
-	canvas.width = 100;
-	canvas.height = 100;
-	canvas.style.width = canvas.style.height = `600px`;
-	canvas.style.imageRendering = "pixelated";
-
-
-	const gl = canvas.getContext("webgl", {
-		// premultipliedAlpha: false,
-		antialias: false,
-	});
-	if (!gl) return mkEl("span", ["no webgl"]);
-	// #endregion
-
-	const draw = new TextureDraw(gl);
-
-	const sprite = bank.get("player")?.clone();
-	if (!sprite) return mkEl("span", ["no sprite"]);
-	sprite.playStart();
-
-	console.log(sprite);
-
-	const render = (dt: number, t: number) => {
-		sprite.advance(dt);
-
-		// sprite.scale = Vector2.ONE;
-		draw.drawSprite(sprite, new Vector2(75, 50));
-		draw.render();
-		// console.log("Render");
-
-		// canvas.style.backgroundColor = `hsl(${(t % 1) * 30}deg 50% 50%)`;
-	}
-	let prev = performance.now();
-	requestAnimationFrame(function renderLoop(now) {
-		const dt = Math.min((now - prev) / 1000, .5);
-		render(dt, now / 1000);
-		prev = now;
-		requestAnimationFrame(renderLoop);
-	});
-
-	return mkEl("div", {
-		classes: ["section"],
-		children: [
-			canvas
-		]
-	});
+const spriteDisplay = (bank: SpriteBank): Element => {
+	const log = mkEl("output", { classes: ["log"] });
+	
+	const initialSprite = bank.get("player")?.clone();
+	if (!initialSprite) return mkEl("div", ["no sprite"]);
+	const el = generalSpriteDisplay(
+		bank,
+		initialSprite,
+		undefined,
+		(draw, sprite, pos) => {
+			sprite.scale = new Vector2(6);
+			draw.drawSprite(sprite, pos);
+		}
+	)
+	return el;
 }
+
+const playerSpriteDisplay = (bank: SpriteBank): Element => {
+	const log = mkEl("output", { classes: ["log"] });
+
+	const initialSprite = bank.get("player")?.clone();
+	if (!initialSprite) return mkEl("div", ["no sprite"]);
+	let playerSprite: PlayerSprite = new PlayerSprite(initialSprite);
+
+	const bangses = initialSprite.atlas.getSubimagesFor("characters/player/bangs");
+	if (!bangses) return mkEl("div", ["no bangs"]);
+	const bangsFallback = bangses.get(0);
+	if (!bangsFallback) return mkEl("div", ["no bangs"]);
+
+	const SCALE = 6;
+	let facing = -1;
+
+	const el = generalSpriteDisplay(
+		bank,
+		initialSprite,
+		["player", "player_no_backpack", "player_badeline", "player_playback", "badeline"],
+		(draw, sprite, pos) => {
+			const flip = new Vector2(Math.sign(facing), 1);
+			const color = Color.fromHex(0xff0000, 1);
+			
+			sprite.scale = new Vector2(facing, 1).scale(SCALE);
+			
+			const hairOffset = playerSprite.hairOffset;
+			if (hairOffset) {
+				const bangsIndex = playerSprite.bangsFrame;
+				const bangs = bangses.get(bangsIndex) ?? AtlasImage.FALLBACK;
+				const bangsOffset = new Vector2(-5, -5);
+				const vertical = new Vector2(0, -9);
+
+				const hairPos = vertical.add(hairOffset).add(bangsOffset);
+				draw.drawImage(bangs, pos.add(hairPos.mul(sprite.scale)), sprite.scale, color);
+			}
+
+			draw.drawSprite(sprite, pos);
+
+			log.value =
+				`${sprite.currentAnimation?.id ?? null}` +
+				`\n#${sprite.animationFrame.toString().padStart(2, "0")} ${sprite.image.path}` +
+				`\n  t = ${sprite.animationTime.toFixed(3)}` +
+				`\n  speed = ${sprite.speed.toFixed(3)}`
+				;
+
+			draw.render();
+		},
+		(sprite) => {
+			playerSprite = new PlayerSprite(sprite);
+		}
+	);
+	return el;
+}
+
 
 const layout = mkEl("div");
 layout.classList.add("layout");
@@ -481,8 +394,8 @@ button.addEventListener("click", async () => {
 
 	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Graphics/Sprites.xml");
 	console.log("Bank:", bank);
-	
-	layout.append(webglDisplay(atlas, bank));
+
+	layout.append(playerSpriteDisplay(bank));
 	layout.append(spriteDisplay(bank));
 	layout.append(atlasDisplay(atlas));
 });
