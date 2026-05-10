@@ -74,6 +74,15 @@ export type GlUsage = (
 	| "STATIC_DRAW"
 	| "DYNAMIC_DRAW"
 );
+
+// #region buffer
+export type GlBufferTarget = (
+	| "ARRAY_BUFFER"
+	| "ELEMENT_ARRAY_BUFFER"
+)
+// #endregion
+
+// #region texture
 export type GlTexture2DTarget = `TEXTURE_2D`;
 export type GlTextureCubeTarget = `TEXTURE_CUBE_MAP_${`POSITIVE` | `NEGATIVE`}_${`X` | `Y` | `Z`}`;
 export type GlTextureTarget =
@@ -83,6 +92,24 @@ export type GlTextureFormat = `RGB` | `RGBA` | `LUMINANCE_ALPHA` | `LUMINANCE` |
 export type GlTextureType = `UNSIGNED_BYTE` | `UNSIGNED_SHORT_${`5_6_5` | `4_4_4_4` | `5_5_5_1`}`;
 export type GlTextureSlot = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type GlTextureSource = ImageBitmap | ImageData | HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | OffscreenCanvas;
+export type GlTextureSimpleFiltering = "LINEAR" | "NEAREST";
+export type GlTextureFiltering =
+	| GlTextureSimpleFiltering
+	| `${GlTextureSimpleFiltering}_MIPMAP_${GlTextureSimpleFiltering}`;
+
+export type WebGlTextureSourceOptions = {
+	/** If `target` is `TEXTURE_CUBE_MAP_...`, will bind texture to `TEXTURE_CUBE_MAP` */
+	readonly target?: GlTextureTarget;
+	readonly level?: GLint;
+	readonly format?: GlTextureFormat;
+	readonly type?: GlTextureType;
+	readonly mipmap?: boolean;
+	/** Used when image is drawn smaller than actual size */
+	readonly downscaleFiltering?: GlTextureFiltering;
+	/** Used when image is drawn larger than actual size */
+	readonly upscaleFiltering?: GlTextureSimpleFiltering;
+};
+// #endregion
 
 /** Basic information manager for a WebGL program. */
 export class WebGlBase implements Disposable {
@@ -100,9 +127,15 @@ export class WebGlBase implements Disposable {
 	clear() {
 		this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT | this.gl.STENCIL_BUFFER_BIT);
 	}
-	draw(count: number) {
+	/** Draw vertices as triangles */
+	drawArrays(count: GLsizei, offset: GLint = 0) {
 		this.gl.useProgram(this.program);
-		this.gl.drawArrays(this.gl.TRIANGLES, 0, count);
+		this.gl.drawArrays(this.gl.TRIANGLES, offset, count);
+	}
+	/** Draw vertices as triangles */
+	drawElements(count: GLsizei, offset: GLintptr = 0, type: "UNSIGNED_SHORT" | "UNSIGNED_BYTE" = "UNSIGNED_SHORT") {
+		this.gl.useProgram(this.program);
+		this.gl.drawElements(this.gl.TRIANGLES, count, this.gl[type], offset);
 	}
 	useProgram(): void { this.gl.useProgram(this.program); }
 
@@ -181,11 +214,17 @@ export class WebGlBase implements Disposable {
 	// #endregion
 
 	// #region buffer
+	createBuffer(): WebGLBuffer {
+		return this.gl.createBuffer();
+	}
+	bindBuffer(target: GlBufferTarget, buffer: WebGLBuffer) {
+		this.gl.bindBuffer(this.gl[target], buffer);
+	}
 	/** Fill a buffer with data. */
-	setBuffer(buffer: WebGLBuffer, data: AllowSharedBufferSource, usage: GlUsage = "DYNAMIC_DRAW") {
+	setBuffer(target: GlBufferTarget, buffer: WebGLBuffer, data: AllowSharedBufferSource, usage: GlUsage = "DYNAMIC_DRAW") {
 		this.useProgram();
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-		this.gl.bufferData(this.gl.ARRAY_BUFFER, data, this.gl[usage]);
+		this.gl.bindBuffer(this.gl[target], buffer);
+		this.gl.bufferData(this.gl[target], data, this.gl[usage]);
 	}
 	/** Bind a buffer to an attribute. */
 	setAttribBuffer(
@@ -221,20 +260,51 @@ export class WebGlBase implements Disposable {
 	}
 	setTextureSource(
 		texture: WebGLTexture,
-		/** If `target` is `TEXTURE_CUBE_MAP_...`, will bind texture to `TEXTURE_CUBE_MAP` */
-		target: GlTextureTarget,
-		level: GLint,
-		format: GlTextureFormat,
-		type: GlTextureType,
 		src: GlTextureSource,
+		options: WebGlTextureSourceOptions = {},
 	) {
-		this.gl.bindTexture(this.toTextureBindTarget(target), texture);
-		console.log([target], level, [format], [format], [type], src, (src as HTMLImageElement).complete);
+		const { width, height } = src;
+		const canMipmap = WebGlBase.isPowerOf2(width) && WebGlBase.isPowerOf2(height);
+		const {
+			target = "TEXTURE_2D",
+			level = 0,
+			format = "RGBA",
+			type = "UNSIGNED_BYTE",
+			mipmap = canMipmap,
+			downscaleFiltering = "LINEAR",
+			upscaleFiltering = "LINEAR",
+		} = options;
+		const targ = this.toTextureBindTarget(target);
+
+		this.gl.bindTexture(targ, texture);
 		this.gl.texImage2D(this.gl[target], level, this.gl[format], this.gl[format], this.gl[type], src);
+
+		const doMipmap = mipmap && canMipmap;
+		if (mipmap && !doMipmap) {
+			console.warn("Texture with non-power of 2 dimensions (%i × %i) cannot have mipmap.");
+		}
+		if (doMipmap) {
+			this.generateMipmap(targ);
+		}
+		if (doMipmap && downscaleFiltering.includes("MIPMAP")) {
+			console.warn("Texture without mipmap cannot use filtering '%s'.", downscaleFiltering);
+			this.setFiltering(targ, "LINEAR", upscaleFiltering);
+		} else {
+			this.setFiltering(targ, downscaleFiltering, upscaleFiltering);
+		}
 	}
-	setTextureSlot(texture: WebGLTexture, target: GlTextureTarget, slot: GlTextureSlot): void {
-		this.gl.activeTexture(this.gl[`TEXTURE${slot}`]);
-		this.gl.bindTexture(this.toTextureBindTarget(target), texture);
+	private generateMipmap(
+		target: GLenum,
+	) {
+		this.gl.generateMipmap(target);
+	}
+	private setFiltering(
+		target: GLenum,
+		down: GlTextureFiltering,
+		up: GlTextureSimpleFiltering,
+	) {
+		this.gl.texParameteri(target, this.gl.TEXTURE_MIN_FILTER, this.gl[down]);
+		this.gl.texParameteri(target, this.gl.TEXTURE_MAG_FILTER, this.gl[up]);
 	}
 	/** Fill a texture with a single #f0f pixel. */
 	setPlaceholderTexture(
@@ -251,10 +321,22 @@ export class WebGlBase implements Disposable {
 			new Uint8Array([255, 0, 255, 255])
 		);
 	}
+	setTextureSlot(texture: WebGLTexture, target: GlTextureTarget, slot: GlTextureSlot): void {
+		this.gl.activeTexture(this.gl[`TEXTURE${slot}`]);
+		this.gl.bindTexture(this.toTextureBindTarget(target), texture);
+	}
+
+	/** Texture source options for pixelated textures, like Celeste's */
+	static readonly Pixelated: WebGlTextureSourceOptions = {
+		mipmap: false,
+		downscaleFiltering: "NEAREST",
+		upscaleFiltering: "NEAREST",
+	};
 
 	private toTextureBindTarget(target: GlTextureTarget) {
 		return target.startsWith("TEXTURE_CUBE_MAP") ? this.gl.TEXTURE_CUBE_MAP : this.gl[target];
 	}
+	private static isPowerOf2(n: number): boolean { return (n & (n - 1)) === 0; }
 	// #endregion
 
 	// #region location
@@ -273,7 +355,7 @@ export class WebGlBase implements Disposable {
 	// #endregion
 
 
-	// #region creation
+	// #region program, shader creation
 	/**
 	 * Creates and links a program with a vertex and fragment shader, then **deletes the shaders**.
 	 * @throws if program creation/linking failed.

@@ -1,5 +1,5 @@
-import { Flatten1, UnionToIntersection } from "../../utils/types.js";
-import { WebGlBase, WebGlLike, WebGlType } from "./base.js";
+import { Flatten1, UnionToIntersection } from "../../../utils/types.js";
+import { WebGlBase, WebGlLike, WebGlType } from "../base.js";
 
 /** 
  * @param vertex Vertex to serialise into data.
@@ -20,7 +20,7 @@ type LayoutValues<L extends Layout> = Flatten1<UnionToIntersection<LayoutPartVal
 /** Uses one big buffer of interleaved data for all attributes. */
 export class InterleavedAttribManager<T, const L extends Layout> {
 	/** Batched vertices. Will be put in the buffer after it is flushed. */
-	protected readonly batch: T[] = [];
+	protected readonly vertices: T[] = [];
 
 	constructor(
 		readonly base: WebGlBase,
@@ -29,8 +29,7 @@ export class InterleavedAttribManager<T, const L extends Layout> {
 	) {
 		this.bindAttribs();
 	}
-	readonly gl = this.base.gl;
-	readonly buffer: WebGLBuffer = this.gl.createBuffer();
+	readonly buffer: WebGLBuffer = this.base.createBuffer();
 	/** Total byte width of layout. */
 	readonly stride = this.layout.reduce((acc, [, type]) => acc + WebGlBase.sizeof(type), 0);
 
@@ -42,18 +41,38 @@ export class InterleavedAttribManager<T, const L extends Layout> {
 		}
 	}
 
-	addVertex(vertex: T) { this.batch.push(vertex); }
-	addVertices(vertices: readonly T[]) { this.batch.push(...vertices); }
+	/** Adds a vertex into the list, then returns its index. */
+	addVertex(vertex: T): number { return this.vertices.push(vertex) - 1; }
+	/** Adds vertices into the list, then returns their starting index. */
+	addVertices(vertices: readonly T[]) {
+		const l = this.vertices.length;
+		this.vertices.push(...vertices);
+		return l;
+	}
+	/** Adds 4 vertices into the list, then returns 6 indices forming two triangles of them. */
+	addQuadIndexed(
+		topLeft: T,
+		topRight: T,
+		bottomLeft: T,
+		bottomRight: T,
+	): [number, number, number, number, number, number] {
+		const a = this.addVertex(topLeft);
+		const b = this.addVertex(topRight);
+		const c = this.addVertex(bottomLeft);
+		const d = this.addVertex(bottomRight);
+		return [a, b, d, a, d, c];
+	}
+
 	/** Flushes the batch into the buffer, **replacing** its contents. */
-	flush() {
-		const data = new ArrayBuffer(this.batch.length * this.stride);
-		for (const [i, vertex] of this.batch.entries()) {
+	flush(): void {
+		const data = new ArrayBuffer(this.vertices.length * this.stride);
+		for (const [i, vertex] of this.vertices.entries()) {
 			this.serialise(vertex, new DataView(data, i * this.stride, this.stride));
 		}
-		this.clearBatch();
-		this.base.setBuffer(this.buffer, data, "DYNAMIC_DRAW");
+		this.clear();
+		this.base.setBuffer("ARRAY_BUFFER", this.buffer, data, "DYNAMIC_DRAW");
 	}
-	clearBatch() { this.batch.length = 0; }
+	clear() { this.vertices.length = 0; }
 
 	/** Automatically places attributes into their spots in layout. */
 	static autoLayout<T, const L extends Layout>(

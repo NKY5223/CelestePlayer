@@ -6,7 +6,8 @@
 html, body { min-height: 100%; }
 body {
 	margin: 0;
-	background-color: #020810;
+	--bg: #041020;
+	background-color: var(--bg);
 	color: #fff;
 	font-family: monospace;
 	font-size: 1.5rem;
@@ -29,7 +30,7 @@ select, button {
 	&:disabled { cursor: not-allowed; }
 }
 option {
-	background-color: #020810;
+	background-color: var(--bg);
 	font: inherit;
 }
 

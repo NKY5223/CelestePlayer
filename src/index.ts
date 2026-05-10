@@ -5,12 +5,13 @@ import { SpriteBank } from "./graphics/sprite/bank.js";
 import { PlayerSprite } from "./graphics/sprite/player.js";
 import { Sprite } from "./graphics/sprite/sprite.js";
 import { WebGlBase, WebGlType } from "./graphics/webgl/base.js";
-import { InterleavedAttribManager } from "./graphics/webgl/interleaved.js";
+import { InterleavedAttribManager } from "./graphics/webgl/attrib/interleaved.js";
 import { Color } from "./utils/color.js";
 import { mkCtx, mkEl } from "./utils/dom.js";
 import { Graph } from "./utils/graph.js";
 import { Rectangle } from "./utils/rectangle.js";
 import { Matrix4, Vector2, Vector3 } from "./utils/vector.js";
+import { ElementIndexManager } from "./graphics/webgl/elements.js";
 
 const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => {
 	const graph = new Graph({
@@ -410,14 +411,18 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 }
 
 const webglDisplay = (atlas: Atlas): Element => {
+	// #region canvas setup
 	const canvas = mkEl("canvas");
-	canvas.width = 128;
-	canvas.height = 128;
+	canvas.width = 512;
+	canvas.height = 512;
+
 
 	const gl = canvas.getContext("webgl");
 	if (!gl) return mkEl("span", ["no webgl"]);
+	// #endregion
 
-	const draw = new WebGlBase(gl, `
+	// #region webgl setup
+	const base = new WebGlBase(gl, `
 precision mediump float;
 attribute vec3 aPos;
 attribute vec2 aUV;
@@ -434,16 +439,17 @@ varying vec2 vUV;
 uniform sampler2D uTexture;
 
 void main() { 
-	gl_FragColor = texture2D(uTexture, fract(vUV * 32.));
+	gl_FragColor = texture2D(uTexture, vUV);
 	// gl_FragColor = vec4(vUV, 0, 1);
+	// gl_FragColor = vec4(vUV, 0, 1) + texture2D(uTexture, vUV);
 }
-`
-	);
+`);
+
 	type Vertex = {
 		pos: Vector2;
 		uv: Vector2;
 	};
-	const attribs = InterleavedAttribManager.autoLayout(draw, [
+	const attribManager = InterleavedAttribManager.autoLayout(base, [
 		["aPos", WebGlType.Float3],
 		["aUV", WebGlType.Float2],
 	], ({ pos, uv }: Vertex) => ({
@@ -451,44 +457,43 @@ void main() {
 		aUV: uv,
 	}));
 
-	const image = new Image(64, 64);
+	const indexManager = new ElementIndexManager(base);
+	// #endregion
 
-	const texture = draw.createTexture();
-	draw.setPlaceholderTexture(texture, "TEXTURE_2D");
-	image.onload = () => {
-		draw.setTextureSource(texture, "TEXTURE_2D", 0, "RGBA", "UNSIGNED_BYTE", image);
-	}
-	image.src = "./assets/fallback-16.png";
+	const texture = base.createTexture();
+	base.setPlaceholderTexture(texture, "TEXTURE_2D");
+
+	const image = atlas.get("characters/player/idle00");
+	if (!image) return mkEl("span", ["no sprite"]);
+
+	base.setTextureSource(texture, image.texture.source, WebGlBase.Pixelated);
 
 	const tx = 0;
 	const ty = 0;
-	const viewProjRescale: Matrix4 = Matrix4.translate(-1, 1, 0).mulMat(Matrix4.diag(2, -2, 1, 1));
-	const viewProjTranslate: Matrix4 = Matrix4.translate(tx, ty, 0);
-	const viewProj = viewProjRescale.mulMat(viewProjTranslate);
+	const scale = 12;
+	const viewProjRescale: Matrix4 = Matrix4
+		.translate(-1, 1, 0)
+		.mulMat(Matrix4.diag(2, -2, 1, 1))
+		.mulMat(Matrix4.diag(scale / canvas.width, scale / canvas.height, 1, 1));
+	const viewProjTranslateWorld: Matrix4 = Matrix4.translate(tx, ty, 0);
+	const viewProj = viewProjRescale.mulMat(viewProjTranslateWorld);
 	console.log("view proj: ", viewProj);
 
-	const topLeft: Vertex = { pos: Vector2.ZERO, uv: Vector2.ZERO };
-	const topRight: Vertex = { pos: Vector2.X, uv: Vector2.X };
-	const bottomLeft: Vertex = { pos: Vector2.Y, uv: Vector2.Y };
-	const bottomRight: Vertex = { pos: Vector2.ONE, uv: Vector2.ONE };
-	const vertices: Vertex[] = [
-		topLeft,
-		topRight,
-		bottomRight,
-		topLeft,
-		bottomRight,
-		bottomLeft,
-	];
-	attribs.addVertices(vertices);
+	indexManager.addIndices(
+		attribManager.addQuadIndexed(
+			{ pos: Vector2.ZERO.mul(image.uv.size), uv: image.uv01.topLeft },
+			{ pos: Vector2.X.mul(image.uv.size), uv: image.uv01.topRight },
+			{ pos: Vector2.Y.mul(image.uv.size), uv: image.uv01.bottomLeft },
+			{ pos: Vector2.ONE.mul(image.uv.size), uv: image.uv01.bottomRight }
+		)
+	);
 
-	draw.setUniformFMat4("uViewProj", viewProj);
-	draw.setUniformSampler2D("uTexture", "TEXTURE_2D", 1, texture);
-	attribs.flush();
+	base.setUniformFMat4("uViewProj", viewProj);
+	base.setUniformSampler2D("uTexture", "TEXTURE_2D", 1, texture);
+	attribManager.flush();
+	indexManager.flush();
 
-	draw.draw(vertices.length);
-	setInterval(() => {
-		draw.draw(vertices.length);
-	}, 1000);
+	base.drawElements(indexManager.count);
 
 	return mkEl("div", {
 		classes: ["section"],
@@ -516,7 +521,6 @@ button.addEventListener("click", async () => {
 	);
 	console.log("Atlas:", atlas);
 
-	// layout.append(atlasDisplay(atlas));
 
 	const bank = await SpriteBank.readFromUrl(atlas, "./assets/Graphics/Sprites.xml");
 	console.log("Bank:", bank);
@@ -524,6 +528,7 @@ button.addEventListener("click", async () => {
 	// topDiv.after(playerSpriteDisplay(bank));
 
 	layout.append(webglDisplay(atlas));
+	layout.append(atlasDisplay(atlas));
 });
 topDiv.append(button);
 

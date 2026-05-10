@@ -1,7 +1,7 @@
-import { GlUsage, WebGlBase, WebGlLike, WebGlType } from "./base.js";
+import { GlUsage, WebGlBase, WebGlLike, WebGlType } from "../base.js";
 
 /** Uses a seperate buffer for each attribute. */
-export class SeperateBufferAttribManager {
+export class SeperateAttribManager {
 	readonly buffers: Map<string, WebGLBuffer> = new Map();
 	
 	constructor(readonly base: WebGlBase) { }
@@ -67,7 +67,7 @@ export class SeperateBufferAttribManager {
 
 	/** Gets buffer assigned to a specific attrib. */
 	getAttribBuffer(name: string): WebGLBuffer {
-		return this.buffers.getOrInsertComputed(name, () => this.gl.createBuffer());
+		return this.buffers.getOrInsertComputed(name, () => this.base.createBuffer());
 	}
 
 	dispose(): void {
