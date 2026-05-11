@@ -59,17 +59,6 @@ export class Sprite implements HasEvents<SpriteEvents> {
 	) {
 	}
 
-	/** @deprecated */
-	draw2d(ctx: CanvasRenderingContext2D, pos: Vector2) {
-		this.draw2dScaled(ctx, pos, this.scale);
-	}
-	/** Draws sprite with a specific scale, overriding its own {@linkcode Sprite.scale scale}.
-	 * @deprecated
-	 */
-	draw2dScaled(ctx: CanvasRenderingContext2D, pos: Vector2, scale: Vector2) {
-		this.#image.draw2dScaled(ctx, pos.add(this.offset.mul(scale)), scale);
-	}
-
 	play(id: string | null) {
 		if (id === null) {
 			this.currentAnimation = null;

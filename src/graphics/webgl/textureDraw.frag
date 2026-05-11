@@ -4,8 +4,7 @@ varying vec2 vUV;
 varying vec4 vColor;
 
 void main() { 
-	gl_FragColor = texture2D(uTexture, vUV);
-	gl_FragColor *= vColor;
+	gl_FragColor = texture2D(uTexture, vUV) * vColor;
 	
 	// probably never gonna use this
 #ifdef ALPHA_CLIP

@@ -13,9 +13,10 @@ export class ElementIndexManager {
 	public get indexType() { return this.#type; }
 
 	constructor(readonly base: WebGlBase) {
+		this.buffer = this.base.createBuffer();
 		this.bindElements();
 	}
-	readonly buffer: WebGLBuffer = this.base.createBuffer();
+	readonly buffer: WebGLBuffer;
 
 	/** Binds the indices buffer to `ELEMENT_ARRAY_BUFFER`. */
 	bindElements(): void {

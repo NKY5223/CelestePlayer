@@ -6,8 +6,8 @@ export class Vector2 implements WebGlLike.Float2 {
 		readonly x: number = 0,
 		readonly y: number = x,
 	) { }
-	readonly 0 = this.x;
-	readonly 1 = this.y;
+	get 0() { return this.x; }
+	get 1() { return this.y; }
 
 	add(v: Vector2): Vector2 { return new Vector2(this.x + v.x, this.y + v.y); }
 	mul(v: Vector2): Vector2 { return new Vector2(this.x * v.x, this.y * v.y); }
@@ -38,9 +38,9 @@ export class Vector3 implements WebGlLike.Float3 {
 		readonly y: number = x,
 		readonly z: number = x,
 	) { }
-	readonly 0 = this.x;
-	readonly 1 = this.y;
-	readonly 2 = this.z;
+	get 0() { return this.x; }
+	get 1() { return this.y; }
+	get 2() { return this.z; }
 
 	add(v: Vector3): Vector3 { return new Vector3(this.x + v.x, this.y + v.y, this.z + v.z); }
 	mul(v: Vector3): Vector3 { return new Vector3(this.x * v.x, this.y * v.y, this.z * v.z); }
@@ -68,10 +68,10 @@ export class Vector4 implements WebGlLike.Float4 {
 		readonly z: number = x,
 		readonly w: number = x,
 	) { }
-	readonly 0 = this.x;
-	readonly 1 = this.y;
-	readonly 2 = this.z;
-	readonly 3 = this.w;
+	get 0() { return this.x; }
+	get 1() { return this.y; }
+	get 2() { return this.z; }
+	get 3() { return this.w; }
 
 	add(v: Vector4): Vector4 { return new Vector4(this.x + v.x, this.y + v.y, this.z + v.z, this.w + v.w); }
 	mul(v: Vector4): Vector4 { return new Vector4(this.x * v.x, this.y * v.y, this.z * v.z, this.w * v.w); }
@@ -99,14 +99,10 @@ export class Matrix2 implements WebGlLike.FloatMat2 {
 		readonly x: Vector2,
 		readonly y: Vector2,
 	) { }
-	readonly xx = this.x.x;
-	readonly xy = this.x.y;
-	readonly yx = this.y.x;
-	readonly yy = this.y.y;
-	readonly "00" = this.xx;
-	readonly "01" = this.xy;
-	readonly "10" = this.yx;
-	readonly "11" = this.yy;
+	get "00"() { return this.x.x; }
+	get "01"() { return this.x.y; }
+	get "10"() { return this.y.x; }
+	get "11"() { return this.y.y; }
 
 	add(m: Matrix2): Matrix2 { return new Matrix2(this.x.add(m.x), this.y.add(m.y)); }
 	mulVec(v: Vector2): Vector2 { return this.x.scale(v.x).add(this.y.scale(v.y)); }
@@ -123,22 +119,22 @@ export class Matrix4 implements WebGlLike.FloatMat4 {
 		readonly z: Vector4,
 		readonly w: Vector4,
 	) { }
-	readonly "00" = this.x.x;
-	readonly "01" = this.x.y;
-	readonly "02" = this.x.z;
-	readonly "03" = this.x.w;
-	readonly "10" = this.y.x;
-	readonly "11" = this.y.y;
-	readonly "12" = this.y.z;
-	readonly "13" = this.y.w;
-	readonly "20" = this.z.x;
-	readonly "21" = this.z.y;
-	readonly "22" = this.z.z;
-	readonly "23" = this.z.w;
-	readonly "30" = this.w.x;
-	readonly "31" = this.w.y;
-	readonly "32" = this.w.z;
-	readonly "33" = this.w.w;
+	get "00"() { return this.x.x; }
+	get "01"() { return this.x.y; }
+	get "02"() { return this.x.z; }
+	get "03"() { return this.x.w; }
+	get "10"() { return this.y.x; }
+	get "11"() { return this.y.y; }
+	get "12"() { return this.y.z; }
+	get "13"() { return this.y.w; }
+	get "20"() { return this.z.x; }
+	get "21"() { return this.z.y; }
+	get "22"() { return this.z.z; }
+	get "23"() { return this.z.w; }
+	get "30"() { return this.w.x; }
+	get "31"() { return this.w.y; }
+	get "32"() { return this.w.z; }
+	get "33"() { return this.w.w; }
 
 	add(m: Matrix4): Matrix4 {
 		return new Matrix4(

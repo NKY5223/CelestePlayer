@@ -1,12 +1,13 @@
-import { GlUsage, WebGlBase, WebGlLike, WebGlType } from "../base.js";
+import { Gl, GlUsage, WebGlBase, WebGlLike, WebGlType } from "../base.js";
 
 /** Uses a seperate buffer for each attribute. */
 export class SeperateAttribManager {
 	readonly buffers: Map<string, WebGLBuffer> = new Map();
+	readonly gl: Gl;
 	
-	constructor(readonly base: WebGlBase) { }
-
-	readonly gl = this.base.gl;
+	constructor(readonly base: WebGlBase) {
+		this.gl = this.base.gl;
+	}
 
 	/** Sets a `float` attrib. */
 	setAttribF1(name: string, values: readonly WebGlLike.Float[], usage: GlUsage = "DYNAMIC_DRAW"): void {

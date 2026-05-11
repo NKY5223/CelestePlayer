@@ -39,12 +39,7 @@ export class Atlas {
 	 * JAVASCRIPT DOES NOT HAVE THIS FEATURE 
 	 * i get that they bundled it from windows but you can RENAME the file,,, please,,,
 	 * 
-	 * TODO: sort this map so you don't have to resort for `getSubimages` every time
-	 * 
-	 * fnuuy thing idk why i wrote this:
-	 * 
-	 * at least `.toLowerCase()` is essentially a map from `string` to 
-	 * its quotient over case-insensitive equality
+	 * TODO: sort this map so you don't have to re-sort for `getSubimages` every time
 	 */
 	protected readonly subimages: Map<string, Map<number, AtlasImage>> = new Map();
 	/** DO NOT MODIFY */

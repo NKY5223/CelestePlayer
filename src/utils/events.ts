@@ -4,7 +4,7 @@ export interface HasEvents<T extends Record<string, unknown>> {
 }
 
 export class EventManager<T extends Record<string, unknown>> {
-	protected readonly listeners: Map<keyof T, Set<(value: never) => void>> = new Map();
+	protected readonly listeners = new Map<keyof T, Set<(value: never) => void>>();
 	constructor() { }
 
 	add<E extends keyof T>(event: E, listener: (value: T[E]) => void) {
@@ -35,5 +35,4 @@ class Example implements HasEvents<T> {
 	removeListener<E extends keyof T>(event: E, listener: (value: T[E]) => void): void {
 		return this.events.remove(event, listener);
 	}
-
 }

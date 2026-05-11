@@ -4,6 +4,8 @@ import { Texture } from "./texture.js";
 
 /** The equivalent of Monocle's `MTexture`, specifically for atlas images. */
 export class AtlasImage {
+	/** Same as {@linkcode uv}, but normalised to `[0, 1]` relative to texture size. */
+	readonly uv01: Rectangle;
 	constructor(
 		/** texture source */
 		readonly texture: Texture,
@@ -15,14 +17,15 @@ export class AtlasImage {
 		readonly offset: Vector2 = Vector2.ZERO,
 		/** Image size (only really matters when drawn justified/centered by a `Sprite`) */
 		readonly size: Vector2 = texture.size,
-	) { }
-	/** Same as {@linkcode uv}, but normalised to `[0, 1]` relative to texture size. */
-	readonly uv01: Rectangle = new Rectangle(
-		this.uv.left / this.texture.width,
-		this.uv.right / this.texture.width,
-		this.uv.top / this.texture.height,
-		this.uv.bottom / this.texture.height,
-	);
+	) {
+		debugger;
+		this.uv01 = new Rectangle(
+			this.uv.left / this.texture.width,
+			this.uv.right / this.texture.width,
+			this.uv.top / this.texture.height,
+			this.uv.bottom / this.texture.height,
+		);
+	}
 
 	draw2d(ctx: CanvasRenderingContext2D, pos: Vector2) {
 		ctx.drawImage(this.texture.source,

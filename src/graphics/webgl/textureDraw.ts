@@ -25,20 +25,25 @@ export declare namespace TextureDraw {
 export class TextureDraw {
 	protected readonly batch: TextureDraw.DrawnImage[] = [];
 	readonly textures = new WeakMap<Texture, WebGLTexture>();
+	readonly base: WebGlBase;
+	readonly indexManager: ElementIndexManager;
+	// Note: let TS infer its type, as it's really long otherwise
+	readonly attribManager;
 
 	/** Expects the context to have antialiasing off. */
-	constructor(readonly gl: Gl) { };
-	readonly base = new WebGlBase(this.gl, vert, frag);
-	readonly indexManager = new ElementIndexManager(this.base);
-	readonly attribManager = InterleavedAttribManager.autoLayoutGeneric<TextureDraw.Vertex>()(this.base, [
-		["aPos", WebGlType.Float3],
-		["aUV", WebGlType.Float2],
-		["aColor", WebGlType.Float4],
-	], ({ pos, uv, color, }) => ({
-		aPos: new Vector3(pos.x, pos.y, 0),
-		aUV: uv,
-		aColor: color,
-	}));
+	constructor(readonly gl: Gl) {
+		this.base = new WebGlBase(this.gl, vert, frag);
+		this.indexManager = new ElementIndexManager(this.base);
+		this.attribManager = InterleavedAttribManager.autoLayoutGeneric<TextureDraw.Vertex>()(this.base, [
+			["aPos", WebGlType.Float3],
+			["aUV", WebGlType.Float2],
+			["aColor", WebGlType.Float4],
+		], ({ pos, uv, color, }) => ({
+			aPos: new Vector3(pos.x, pos.y, 0),
+			aUV: uv,
+			aColor: color,
+		}));
+	};
 
 	getWebGlTextureFor(texture: Texture): WebGLTexture {
 		return this.textures.getOrInsertComputed(texture, () => {

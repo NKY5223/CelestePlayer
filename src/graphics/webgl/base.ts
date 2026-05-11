@@ -42,7 +42,6 @@ export declare namespace WebGlLike {
 		| Float3
 		| Float4
 	);
-
 }
 // #endregion
 

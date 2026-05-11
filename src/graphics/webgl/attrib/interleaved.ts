@@ -21,17 +21,19 @@ type LayoutValues<L extends Layout> = Flatten1<UnionToIntersection<LayoutPartVal
 export class InterleavedAttribManager<T, const L extends Layout> {
 	/** Batched vertices. Will be put in the buffer after it is flushed. */
 	protected readonly vertices: T[] = [];
-
+	readonly buffer: WebGLBuffer;
+	/** Total byte width of layout. */
+	readonly stride: number;
+	
 	constructor(
 		readonly base: WebGlBase,
 		readonly layout: L,
 		readonly serialise: Serialiser<T>,
 	) {
+		this.buffer = this.base.createBuffer();
+		this.stride = this.layout.reduce((acc, [, type]) => acc + WebGlBase.sizeof(type), 0);
 		this.bindAttribs();
 	}
-	readonly buffer: WebGLBuffer = this.base.createBuffer();
-	/** Total byte width of layout. */
-	readonly stride = this.layout.reduce((acc, [, type]) => acc + WebGlBase.sizeof(type), 0);
 
 	bindAttribs() {
 		let offset = 0;

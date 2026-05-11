@@ -13,6 +13,9 @@ import { Rectangle } from "./utils/rectangle.js";
 import { Matrix4, Vector2, Vector3 } from "./utils/vector.js";
 import { ElementIndexManager } from "./graphics/webgl/elements.js";
 import { TextureDraw } from "./graphics/webgl/textureDraw.js";
+import { Texture } from "./graphics/atlas/texture.js";
+
+Object.assign(window, { Atlas, AtlasImage, Texture, Sprite, SpriteBank, SpriteAnimation, Rectangle, Vector2 });
 
 const readAtlasImageWithGraph = (src: string): [Graph, Promise<ImageBitmap>] => {
 	const graph = new Graph({
@@ -211,7 +214,7 @@ const generalSpriteDisplay = (
 	bank: SpriteBank,
 	initialSprite: Sprite,
 	spriteSet?: readonly string[],
-	onRender: (draw: TextureDraw, sprite: Sprite, pos: Vector2, dt: number) => void = () => { },
+	onRender: (draw: TextureDraw, sprite: Sprite, pos: Vector2, dt: number, t: number) => void = () => { },
 	onSetSprite: (sprite: Sprite) => void = () => { },
 ): Element => {
 	const log = mkEl("output", { classes: ["log"] });
@@ -237,10 +240,10 @@ const generalSpriteDisplay = (
 		gl.clearColor(0, 0, 0, 0);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 	}
-	const render = (dt: number) => {
+	const render = (dt: number, t: number) => {
 		clear();
 		sprite.advance(dt);
-		onRender(draw, sprite, pos, dt);
+		onRender(draw, sprite, pos, dt, t);
 
 		log.value =
 			`${sprite.currentAnimation?.id ?? null}` +
@@ -255,7 +258,7 @@ const generalSpriteDisplay = (
 	const renderLoop = (now: number) => {
 		const ms = now - prev;
 		prev = now;
-		render(ms / 1000);
+		render(ms / 1000, now / 1000);
 		requestAnimationFrame(renderLoop);
 	}
 	requestAnimationFrame(renderLoop);
@@ -302,9 +305,7 @@ const generalSpriteDisplay = (
 	});
 }
 
-const spriteDisplay = (bank: SpriteBank): Element => {
-	const log = mkEl("output", { classes: ["log"] });
-	
+const spriteDisplay = (bank: SpriteBank): Element => {	
 	const initialSprite = bank.get("player")?.clone();
 	if (!initialSprite) return mkEl("div", ["no sprite"]);
 	const el = generalSpriteDisplay(
@@ -320,8 +321,6 @@ const spriteDisplay = (bank: SpriteBank): Element => {
 }
 
 const playerSpriteDisplay = (bank: SpriteBank): Element => {
-	const log = mkEl("output", { classes: ["log"] });
-
 	const initialSprite = bank.get("player")?.clone();
 	if (!initialSprite) return mkEl("div", ["no sprite"]);
 	let playerSprite: PlayerSprite = new PlayerSprite(initialSprite);
@@ -332,15 +331,20 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 	if (!bangsFallback) return mkEl("div", ["no bangs"]);
 
 	const SCALE = 6;
-	let facing = -1;
 
+	const input = mkEl("input");
+	input.type = "color";
+	let color = Color.fromHex(0xff0000, 1);
+	input.oninput = () => {
+		Color.fromString(input.value);
+	}
+	
 	const el = generalSpriteDisplay(
 		bank,
 		initialSprite,
 		["player", "player_no_backpack", "player_badeline", "player_playback", "badeline"],
-		(draw, sprite, pos) => {
-			const flip = new Vector2(Math.sign(facing), 1);
-			const color = Color.fromHex(0xff0000, 1);
+		(draw, sprite, pos, dt, t) => {
+			let facing = -1;
 			
 			sprite.scale = new Vector2(facing, 1).scale(SCALE);
 			
@@ -357,19 +361,14 @@ const playerSpriteDisplay = (bank: SpriteBank): Element => {
 
 			draw.drawSprite(sprite, pos);
 
-			log.value =
-				`${sprite.currentAnimation?.id ?? null}` +
-				`\n#${sprite.animationFrame.toString().padStart(2, "0")} ${sprite.image.path}` +
-				`\n  t = ${sprite.animationTime.toFixed(3)}` +
-				`\n  speed = ${sprite.speed.toFixed(3)}`
-				;
-
 			draw.render();
 		},
 		(sprite) => {
 			playerSprite = new PlayerSprite(sprite);
 		}
 	);
+
+	el.querySelector(".log")!.before(input);
 	return el;
 }
 
@@ -406,4 +405,3 @@ document.addEventListener("DOMContentLoaded", () => {
 	document.body.append(layout);
 });
 
-Object.assign(window, { Atlas, AtlasImage, Sprite, SpriteBank, SpriteAnimation, Rectangle, Vector2 });
